@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estate Manager | Dashboard</title>
+    <link rel="stylesheet" href="styles/index.css">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <nav class="sidebar">
+            <div class="logo">
+                <i class="ph-bold ph-buildings"></i>
+                <span>EstatePro</span>
+            </div>
+            <ul class="nav-links">
+                <li class="active"><a href="#"><i class="ph ph-squares-four"></i> Dashboard</a></li>
+                <li><a href="#"><i class="ph ph-users"></i> Residents</a></li>
+                <li><a href="#"><i class="ph ph-receipt"></i> Invoices</a></li>
+                <li><a href="#"><i class="ph ph-hand-coins"></i> Payments</a></li>
+                <li><a href="#"><i class="ph ph-chart-line"></i> Math Reports</a></li>
+            </ul>
+            <div class="user-profile">
+                <div class="avatar">AD</div>
+                <div class="user-info">
+                    <p class="name">Admin User</p>
+                    <p class="role">Committee Head</p>
+                </div>
+            </div>
+        </nav>
+
+        <main class="content">
+            <header class="top-bar">
+    <div class="estate-branding">
+        <h1 id="current-estate-name">Amani Estate</h1>
+        <br>
+    </div>
+    
+    <div class="top-bar-actions">
+        <div class="date-display">
+            <i class="ph ph-calendar-blank"></i> February 2026
+        </div>
+    </div>
+</header>
+
+            <section class="stats-grid">
+                <div class="card stat-card">
+                    <span class="icon-bg blue"><i class="ph ph-money"></i></span>
+                    <div>
+                        <p class="label">Total Collected</p>
+                        <h2 class="value">KES 420,000</h2>
+                    </div>
+                </div>
+                <div class="card stat-card">
+                    <span class="icon-bg red"><i class="ph ph-warning-circle"></i></span>
+                    <div>
+                        <p class="label">Total Overdue</p>
+                        <h2 class="value">KES 85,000</h2>
+                    </div>
+                </div>
+                <div class="card stat-card">
+                    <span class="icon-bg green"><i class="ph ph-house"></i></span>
+                    <div>
+                        <p class="label">Occupancy</p>
+                        <h2 class="value">94%</h2>
+                    </div>
+                </div>
+                <div class="card stat-card">
+                    <span class="icon-bg orange"><i class="ph ph-clock"></i></span>
+                    <div>
+                        <p class="label">Pending Invoices</p>
+                        <h2 class="value">12</h2>
+                    </div>
+                </div>
+            </section>
+
+            <section class="quick-actions">
+                <h3>Quick Actions</h3>
+                <div class="action-buttons">
+                    <button class="action-btn"><i class="ph ph-user-plus"></i> Add Resident</button>
+                    <button class="action-btn"><i class="ph ph-currency-circle-dollar"></i> Record Payment</button>
+                    <button class="action-btn"><i class="ph ph-stack"></i> Bulk Invoice</button>
+                    <button class="action-btn secondary"><i class="ph ph-export"></i> Export CSV</button>
+                </div>
+            </section>
+
+            <section class="card table-section">
+                <div class="table-header">
+                    <h3>Recent Payments</h3>
+                    <a href="#" class="view-all">View All</a>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Resident</th>
+                            <th>Unit</th>
+                            <th>Amount</th>
+                            <th>Method</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Samuel Kamau</td>
+                            <td>A-12</td>
+                            <td>KES 5,500</td>
+                            <td>M-Pesa</td>
+                            <td><span class="status-badge paid">Paid</span></td>
+                        </tr>
+                        <tr>
+                            <td>Jane Muthoni</td>
+                            <td>B-04</td>
+                            <td>KES 4,000</td>
+                            <td>Bank Transfer</td>
+                            <td><span class="status-badge partial">Partial</span></td>
+                        </tr>
+                        <tr>
+                            <td>David Omondi</td>
+                            <td>C-09</td>
+                            <td>KES 5,500</td>
+                            <td>M-Pesa</td>
+                            <td><span class="status-badge paid">Paid</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+        </main>
+    </div>
+</body>
+</html>
