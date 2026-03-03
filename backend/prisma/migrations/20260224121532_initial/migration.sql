@@ -10,6 +10,7 @@ CREATE TABLE "User" (
     "fullName" TEXT,
     "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
+    "role" TEXT NOT NULL DEFAULT 'admin',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
@@ -60,6 +61,10 @@ CREATE TABLE "Invoice" (
     "amount" DECIMAL(10,2) NOT NULL,
     "lateFee" DECIMAL(10,2) NOT NULL DEFAULT 0,
     "status" "InvoiceStatus" NOT NULL DEFAULT 'PENDING',
+    "referenceNo" TEXT NOT NULL,
+    "billingMonth" INTEGER NOT NULL,
+    "billingYear" INTEGER NOT NULL,
+    "daysOverdue" INTEGER NOT NULL DEFAULT 0,
 
     CONSTRAINT "Invoice_pkey" PRIMARY KEY ("id")
 );
@@ -72,6 +77,7 @@ CREATE TABLE "Payment" (
     "amountPaid" DECIMAL(10,2) NOT NULL,
     "method" TEXT NOT NULL,
     "receiptNo" TEXT NOT NULL,
+    "notes" TEXT,
 
     CONSTRAINT "Payment_pkey" PRIMARY KEY ("id")
 );
@@ -85,6 +91,7 @@ CREATE TABLE "CommunicationLog" (
     "channel" TEXT NOT NULL,
     "content" TEXT NOT NULL,
     "sentBy" TEXT NOT NULL,
+    "followUp" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "CommunicationLog_pkey" PRIMARY KEY ("id")
 );
@@ -96,7 +103,10 @@ CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 CREATE UNIQUE INDEX "Resident_email_key" ON "Resident"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Resident_phone_key" ON "Resident"("phone");
+CREATE UNIQUE INDEX "Invoice_referenceNo_key" ON "Invoice"("referenceNo");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Invoice_residentId_billingMonth_billingYear_key" ON "Invoice"("residentId", "billingMonth", "billingYear");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Payment_receiptNo_key" ON "Payment"("receiptNo");

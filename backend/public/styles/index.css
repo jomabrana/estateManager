@@ -166,3 +166,25 @@ td { padding: 16px 12px; border-bottom: 1px solid #f1f5f9; }
 
 .status-badge.paid { background: #dcfce7; color: #166534; }
 .status-badge.partial { background: #fef3c7; color: #92400e; }
+
+.logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  background-color: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: background-color 0.2s;
+}
+
+.logout-btn:hover {
+  background-color: #b91c1c;
+}
+
+.logout-btn i {
+  font-size: 1.2rem;
+}

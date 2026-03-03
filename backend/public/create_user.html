@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EstatePro - Create User</title>
+    <link rel="stylesheet" href="styles/create_user.css">
+    <script src="./js/create_user.js"></script>
+    
+</head>
+<body>
+    <div class="container">
+        <!-- Auth Check: Show error if not logged in -->
+        <div id="authError" style="display: none;">
+            <div class="auth-error">
+                <h2>🔐 Access Denied</h2>
+                <p>You must be logged in to create new users. Please log in first.</p>
+                <a href="/login.html" class="login-link">Go to Login</a>
+            </div>
+        </div>
+
+        <!-- Main Form: Show if logged in -->
+        <div id="formSection" style="display: none;">
+            <div class="header">
+                <div>
+                    <h1>🏢 EstatePro</h1>
+                </div>
+                <div class="user-info">
+                    <span id="currentUserName">User</span>
+                    <span class="user-badge" id="userRole">admin</span>
+                    <button class="logout-btn" onclick="logout()">Logout</button>
+                </div>
+            </div>
+
+            <div class="form-container">
+                <div class="form-title">Create New User</div>
+
+                <div id="errorMessage" class="error-message"></div>
+                <div id="successMessage" class="success-message"></div>
+
+                <form id="createUserForm">
+                    <div class="form-group">
+                        <label for="fullName">Full Name</label>
+                        <input 
+                            type="text" 
+                            id="fullName" 
+                            name="fullName" 
+                            placeholder="John Doe"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input 
+                            type="email" 
+                            id="email" 
+                            name="email" 
+                            placeholder="john@estate.com"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password" 
+                            placeholder="••••••••"
+                            required
+                        >
+                        <div class="password-requirements">
+                            <div class="requirement unmet" id="lengthReq">
+                                <span class="requirement-icon">✗</span>
+                                At least 8 characters
+                            </div>
+                            <div class="requirement unmet" id="upperReq">
+                                <span class="requirement-icon">✗</span>
+                                At least one uppercase letter
+                            </div>
+                            <div class="requirement unmet" id="numberReq">
+                                <span class="requirement-icon">✗</span>
+                                At least one number
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm Password</label>
+                        <input 
+                            type="password" 
+                            id="confirmPassword" 
+                            name="confirmPassword" 
+                            placeholder="••••••••"
+                            required
+                        >
+                    </div>
+
+                    <div class="button-group">
+                        <button type="button" class="back-btn" onclick="goBack()">Back to Dashboard</button>
+                        <button type="submit" id="submitBtn" class="submit-btn">
+                            <div class="btn-content">
+                                <div class="loading-spinner" id="spinner"></div>
+                                <span id="btnText">Create User</span>
+                            </div>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

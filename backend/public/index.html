@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Estate Manager | Dashboard</title>
     <link rel="stylesheet" href="styles/index.css">
+    
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
 <body>
@@ -38,8 +39,12 @@
     </div>
     
     <div class="top-bar-actions">
+        <button id="logout-btn" class="logout-btn">
+            <i class="ph ph-sign-out"></i> Logout
+        </button>
         <div class="date-display">
-            <i class="ph ph-calendar-blank"></i> February 2026
+            <i class="ph ph-calendar-blank"></i> 
+            <span id="current-date-time">Loading...</span>
         </div>
     </div>
 </header>
@@ -127,5 +132,6 @@
             </section>
         </main>
     </div>
+    <script src="./js/index.js"></script>
 </body>
 </html>
