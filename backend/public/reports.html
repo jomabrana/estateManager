@@ -1,0 +1,57 @@
+<div class="page-actions">
+    <button class="btn btn-secondary" onclick="exportCSV()">
+        <i class="ph ph-export"></i> Export CSV
+    </button>
+    <button class="btn btn-secondary" onclick="printReport()">
+        <i class="ph ph-printer"></i> Print Report
+    </button>
+</div>
+
+<div class="stats-grid">
+    <div class="card stat-card">
+        <div class="icon-bg blue"><i class="ph ph-money"></i></div>
+        <div>
+            <p class="stat-label">Total Collected (YTD)</p>
+            <h2 class="stat-value" id="ytd-collected">KES 0</h2>
+        </div>
+    </div>
+    <div class="card stat-card">
+        <div class="icon-bg red"><i class="ph ph-warning-circle"></i></div>
+        <div>
+            <p class="stat-label">Total Outstanding</p>
+            <h2 class="stat-value" id="total-outstanding">KES 0</h2>
+        </div>
+    </div>
+    <div class="card stat-card">
+        <div class="icon-bg orange"><i class="ph ph-percent"></i></div>
+        <div>
+            <p class="stat-label">Collection Rate</p>
+            <h2 class="stat-value" id="collection-rate">0%</h2>
+        </div>
+    </div>
+    <div class="card stat-card">
+        <div class="icon-bg green"><i class="ph ph-house"></i></div>
+        <div>
+            <p class="stat-label">Occupancy Rate</p>
+            <h2 class="stat-value" id="occupancy-rate">0%</h2>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Monthly Revenue</h2>
+    </div>
+    <div id="revenue-chart" style="height: 300px; display: flex; align-items: center; justify-content: center; color: var(--text-muted);">
+        Chart loading...
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Payment Status</h2>
+    </div>
+    <div id="payment-status-chart" style="height: 300px; display: flex; align-items: center; justify-content: center; color: var(--text-muted);">
+        Chart loading...
+    </div>
+</div>

@@ -1,0 +1,64 @@
+<div class="page-actions">
+    <button class="btn btn-primary" onclick="openModal('communication-modal')">
+        <i class="ph ph-plus"></i> Log Communication
+    </button>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Communication Logs</h2>
+    </div>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Resident</th>
+                    <th>Subject</th>
+                    <th>Type</th>
+                    <th>Date</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="communications-tbody">
+                <tr><td colspan="6" style="text-align: center; padding: 40px;">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="communication-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">Log Communication</div>
+        <form id="communication-form">
+            <div class="form-group">
+                <label>Resident *</label>
+                <select id="comm-resident" required style="width: 100%; padding: 10px 16px; border: 1px solid var(--border-color); border-radius: 8px;">
+                    <option value="">Select...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Type *</label>
+                <select id="comm-type" required style="width: 100%; padding: 10px 16px; border: 1px solid var(--border-color); border-radius: 8px;">
+                    <option value="EMAIL">Email</option>
+                    <option value="SMS">SMS</option>
+                    <option value="LETTER">Letter</option>
+                    <option value="VISIT">In-Person Visit</option>
+                    <option value="CALL">Phone Call</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Subject *</label>
+                <input type="text" id="comm-subject" required>
+            </div>
+            <div class="form-group">
+                <label>Message/Notes</label>
+                <textarea id="comm-message" style="width: 100%; padding: 10px 16px; border: 1px solid var(--border-color); border-radius: 8px; font-family: inherit;"></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('communication-modal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Log</button>
+            </div>
+        </form>
+    </div>
+</div>
