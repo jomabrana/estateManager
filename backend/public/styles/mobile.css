@@ -1,0 +1,315 @@
+/* ═══════════════════════════════════════════════════════════════
+   mobile.css — global responsive overrides for all pages
+   Loaded once in index.html, covers all dynamic page content
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── GLOBAL OVERFLOW GUARD (all screen sizes) ────────────────── */
+.card,
+.modal-content,
+.form-group,
+.page-actions,
+.filter-bar,
+.stats-grid,
+.action-buttons,
+.residents-counters {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Tables scroll within their container, never push the page */
+.table-responsive {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+table {
+  max-width: none; /* tables are allowed to be wider than container — scrolled by .table-responsive */
+  width: 100%;
+}
+
+/* ── TABLET (≤ 1024px) ───────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .action-buttons {
+    flex-wrap: wrap;
+  }
+}
+
+/* ── TABLET / LARGE PHONE (≤ 768px) ─────────────────────────── */
+@media (max-width: 768px) {
+
+  /* SIDEBAR — collapse to icon-only */
+  .sidebar {
+    width: 64px;
+    padding: 16px 8px;
+    overflow: visible;
+  }
+
+  .sidebar .logo span,
+  .nav-link span,
+  .user-info {
+    display: none;
+  }
+
+  .logo {
+    justify-content: center;
+    margin-bottom: 24px;
+  }
+
+  .nav-link {
+    justify-content: center;
+    padding: 12px;
+    border-left: none;
+    border-radius: 10px;
+  }
+
+  .nav-link.active {
+    border-left: none;
+  }
+
+  .user-profile {
+    justify-content: center;
+  }
+
+  .avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 0.75rem;
+  }
+
+  /* MAIN CONTENT */
+  .content {
+    margin-left: 64px;
+  }
+
+  /* TOP BAR */
+  .top-bar {
+    padding: 14px 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .page-title {
+    font-size: 1.4rem;
+  }
+
+  .header-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .date-time-display {
+    font-size: 0.8rem;
+    padding: 6px 10px;
+  }
+
+  /* MAIN CONTENT AREA */
+  .main-content {
+    padding: 20px 16px;
+  }
+
+  /* STATS GRID */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .stat-value {
+    font-size: 1.4rem;
+  }
+
+  /* CARDS */
+  .card {
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  /* QUICK ACTIONS */
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .action-buttons .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* TABLES — horizontal scroll */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    min-width: 560px;
+    font-size: 0.82rem;
+  }
+
+  th, td {
+    padding: 10px 8px;
+  }
+
+  /* PAGE ACTIONS */
+  .page-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .page-actions .btn {
+    flex: 1;
+    justify-content: center;
+    min-width: 120px;
+  }
+
+  /* FILTER BAR */
+  .filter-bar {
+    flex-direction: column;
+  }
+
+  .filter-bar input,
+  .filter-bar select {
+    width: 100%;
+  }
+
+  /* MODALS */
+  .modal-content {
+    width: 95%;
+    max-width: 95%;
+    padding: 20px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  /* RESIDENTS — counter cards wrap to 2x2 */
+  .residents-counters,
+  div[style*="display:flex"][style*="gap:12px"] {
+    flex-wrap: wrap !important;
+  }
+
+  /* FORMS */
+  .resident-form-grid,
+  .form-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .form-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* ESTATE DANGER ZONE */
+  .danger-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .danger-item .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* NO-ESTATE WALL */
+  .no-estate-card {
+    padding: 40px 24px;
+  }
+}
+
+/* ── SMALL PHONE (≤ 480px) ───────────────────────────────────── */
+@media (max-width: 480px) {
+
+  /* SIDEBAR — hide completely, use top nav instead */
+  .sidebar {
+    width: 56px;
+    padding: 12px 6px;
+  }
+
+  .content {
+    margin-left: 56px;
+  }
+
+  /* TOP BAR */
+  .top-bar {
+    padding: 12px 14px;
+  }
+
+  .page-title {
+    font-size: 1.2rem;
+  }
+
+  /* Hide logout text, show icon only */
+  .logout-btn span {
+    display: none;
+  }
+
+  .logout-btn {
+    padding: 8px 10px;
+  }
+
+  /* Hide date on very small screens */
+  .date-time-display {
+    display: none;
+  }
+
+  /* STATS — stack to 1 column */
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* MAIN CONTENT */
+  .main-content {
+    padding: 16px 12px;
+  }
+
+  /* CARD */
+  .card {
+    padding: 12px;
+    border-radius: 8px;
+  }
+
+  /* RESIDENT COUNTERS — 2 per row on small phones */
+  .residents-counters > div,
+  div[style*="display:flex"][style*="gap:12px"] > div {
+    min-width: calc(50% - 6px) !important;
+    flex: 0 0 calc(50% - 6px) !important;
+  }
+
+  /* MODALS */
+  .modal-content {
+    width: 98%;
+    padding: 16px;
+    border-radius: 8px;
+  }
+
+  .modal-header {
+    font-size: 1rem;
+  }
+
+  /* ESTATE PAGE */
+  .estate-page {
+    max-width: 100%;
+  }
+
+  /* DELETE MODAL phrase */
+  .confirm-phrase {
+    font-size: 0.75rem;
+  }
+
+  /* NO-ESTATE WALL */
+  .no-estate-card {
+    padding: 32px 16px;
+  }
+
+  .no-estate-icon {
+    font-size: 48px;
+  }
+}

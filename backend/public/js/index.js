@@ -190,9 +190,15 @@ async function loadPage(pageName) {
 // ═══════════════════════════════════════════════════════════════
 
 function setActiveNav(pageName) {
+  // Desktop sidebar
   document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-  const active = document.querySelector(`[data-page="${pageName}"]`);
+  const active = document.querySelector(`.nav-link[data-page="${pageName}"]`);
   if (active) active.classList.add('active');
+
+  // Mobile bottom nav
+  document.querySelectorAll('.bottom-nav-item').forEach(l => l.classList.remove('active'));
+  const activeBottom = document.querySelector(`.bottom-nav-item[data-page="${pageName}"]`);
+  if (activeBottom) activeBottom.classList.add('active');
 }
 
 function updatePageTitle(title, subtitle) {

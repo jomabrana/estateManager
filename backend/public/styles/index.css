@@ -17,7 +17,59 @@
     --card-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+/* Prevent any child from causing horizontal overflow */
+*, *::before, *::after {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+/* Explicit exceptions for things that SHOULD scroll horizontally */
+table, pre, code {
+  max-width: none;
+}
+
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+.dashboard-container {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+.content {
+  overflow-x: hidden;
+  min-width: 0;
+}
+
+.main-content {
+  overflow-x: hidden;
+  min-width: 0;
+}
+
+#page-container {
+  overflow-x: hidden;
+  min-width: 0;
+  width: 100%;
+}
+
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+
+/* Prevent inputs, selects, textareas from overflowing their container */
+input, select, textarea, button {
+  max-width: 100%;
+}
+
+/* Prevent images from overflowing */
+img {
+  max-width: 100%;
+  height: auto;
+}
 
 body {
     font-family: 'Inter', system-ui, sans-serif;
@@ -582,33 +634,4 @@ tbody tr:hover { background-color: var(--body-bg); }
 @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes slideOut{ from { transform: translateX(0); opacity: 1; } to { transform: translateX(400px); opacity: 0; } }
 
-/* ═══════════════════════════════════════════════════════════════ */
-/* RESPONSIVE */
-/* ═══════════════════════════════════════════════════════════════ */
-
-@media (max-width: 768px) {
-    .sidebar { width: 80px; padding: 16px; }
-    .sidebar .logo span, .nav-link span, .user-info { display: none; }
-    .content { margin-left: 80px; }
-    .top-bar { padding: 16px 24px; flex-direction: column; align-items: flex-start; gap: 16px; }
-    .header-right { width: 100%; justify-content: space-between; }
-    .page-title { font-size: 1.5rem; }
-    .stats-grid { grid-template-columns: 1fr; }
-    .main-content { padding: 20px 24px; }
-    .action-buttons { flex-direction: column; }
-    .action-btn { width: 100%; justify-content: center; }
-    table { font-size: 0.85rem; }
-    td, th { padding: 12px 8px; }
-    .modal-content { width: 95%; padding: 20px; }
-    .no-estate-card { padding: 48px 32px; }
-}
-
-@media (max-width: 480px) {
-    .logout-btn span { display: none; }
-    .date-time-display { font-size: 0.8rem; }
-    .page-title { font-size: 1.25rem; }
-    .card { padding: 16px; }
-    .page-actions { flex-direction: column; }
-    .btn { width: 100%; justify-content: center; }
-    .no-estate-card { padding: 40px 24px; }
-}
+/* Responsive styles moved to mobile.css */
