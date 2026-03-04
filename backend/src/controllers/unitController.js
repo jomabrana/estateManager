@@ -173,5 +173,3 @@ const deleteUnit = async (req, res) => {
 };
 
 module.exports = { createUnit, getUnits, getUnit, updateUnit, deleteUnit };
-
-module.exports = { createUnit, getUnits, getUnit, updateUnit, deleteUnit };

@@ -311,6 +311,61 @@ function addPhoneField(value = '') {
   c.appendChild(div);
 }
 
+// ── EXPORT CSV ────────────────────────────────────────────────
+
+function exportResidentsCSV() {
+  if (!allResidents.length) {
+    if (typeof showNotification === 'function') showNotification('No residents to export', 'warning');
+    return;
+  }
+
+  const escape = v => {
+    const s = String(v ?? '');
+    // Wrap in quotes if contains comma, quote, or newline
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const headers = [
+    'Unit Number', 'Resident Name', 'Type',
+    'Emails', 'Phones', 'Monthly Charge (KES)',
+    'Move-in Date', 'Status', 'Notes'
+  ];
+
+  const typeMap = {
+    OWNER_OCCUPIER: 'Owner Occupier',
+    DIRECT_TENANT:  'Direct Tenant',
+    MANAGED_TENANT: 'Managed Tenant',
+    ABSENTEE_OWNER: 'Absentee Owner'
+  };
+
+  const rows = allResidents.map(r => [
+    escape(r.unit?.unitNumber),
+    escape(r.fullName),
+    escape(typeMap[r.type] || r.type),
+    escape((r.emails || []).join('; ')),
+    escape((r.phones || []).join('; ')),
+    escape(r.unit?.monthlyCharge ?? ''),
+    escape(r.moveInDate ? r.moveInDate.split('T')[0] : ''),
+    escape(r.isActive === false ? 'Inactive' : 'Active'),
+    escape(r.notes)
+  ].join(','));
+
+  const csv     = [headers.join(','), ...rows].join('\n');
+  const blob    = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url     = URL.createObjectURL(blob);
+  const link    = document.createElement('a');
+  const date    = new Date().toISOString().split('T')[0];
+
+  link.href     = url;
+  link.download = `residents_${date}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+
+  if (typeof showNotification === 'function')
+    showNotification(`Exported ${allResidents.length} residents`, 'success');
+}
+
 // ── HELPERS ───────────────────────────────────────────────────
 
 function clearForm() {
