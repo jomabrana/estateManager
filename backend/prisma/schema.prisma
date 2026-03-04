@@ -57,11 +57,12 @@ model Resident {
   unitId     Int
   unit       Unit             @relation(fields: [unitId], references: [id])
   fullName   String
-  email      String           @unique
-  phone      String?
+  emails     String[]
+  phones     String[]
   type       ResidentType
   moveInDate DateTime
   isActive   Boolean          @default(true)
+  notes      String?
   invoices   Invoice[]
   logs       CommunicationLog[]
   createdAt  DateTime         @default(now())

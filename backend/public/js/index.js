@@ -378,7 +378,7 @@ function updateDashboardStats(payments, invoices, tenants, units) {
   if (el('total-collected')) el('total-collected').textContent = formatCurrency(totalCollected);
   if (el('total-overdue'))   el('total-overdue').textContent   = formatCurrency(totalOverdue);
   if (el('total-units'))     el('total-units').textContent     = units.length;
-  if (el('total-residents')) el('total-residents').textContent = tenants.filter(t => t.isActive).length;
+  if (el('total-residents')) el('total-residents').textContent = tenants.filter(t => t.isActive !== false).length;
 }
 
 // ═══════════════════════════════════════════════════════════════
