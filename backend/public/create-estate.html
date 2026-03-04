@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EstatePro | Create Estate</title>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <link rel="stylesheet" href="./styles/login.css">
+  <style>
+    .create-card { max-width: 520px; }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+    .form-group input,
+    .form-group textarea { width: 100%; padding: 11px 14px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 15px; color: #0f172a; background: #f8fafc; box-sizing: border-box; transition: border-color 0.2s; }
+    .form-group input:focus,
+    .form-group textarea:focus { outline: none; border-color: #2563eb; background: white; }
+    .form-group textarea { resize: vertical; min-height: 80px; font-family: inherit; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .btn-submit { width: 100%; padding: 13px; background: #2563eb; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; transition: background 0.2s; }
+    .btn-submit:hover { background: #1d4ed8; }
+    .btn-submit:disabled { background: #93c5fd; cursor: not-allowed; }
+    .error-msg { color: #ef4444; font-size: 14px; margin-top: 12px; display: none; }
+    .logo-row { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
+    .logo-row i { font-size: 28px; color: #2563eb; }
+    .logo-row span { font-size: 22px; font-weight: 800; color: #0f172a; }
+    .page-desc { color: #64748b; font-size: 15px; margin-bottom: 28px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-card create-card">
+      <div class="logo-row">
+        <i class="ph-bold ph-buildings"></i>
+        <span>EstatePro</span>
+      </div>
+      <h1 style="font-size:22px;font-weight:700;color:#0f172a;margin-bottom:8px;">Create Your Estate</h1>
+      <p class="page-desc">Set up your estate profile. You can always update these details later from the Estate Settings page.</p>
+
+      <div class="form-group">
+        <label for="name">Estate Name *</label>
+        <input type="text" id="name" placeholder="e.g. Amani Estate" autocomplete="off">
+      </div>
+
+      <div class="form-group">
+        <label for="location">Location *</label>
+        <input type="text" id="location" placeholder="e.g. Mombasa, Kenya">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="numberOfUnits">Number of Units</label>
+          <input type="number" id="numberOfUnits" placeholder="e.g. 50" min="0">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="description">Description <span style="font-weight:400;color:#94a3b8;">(optional)</span></label>
+        <textarea id="description" placeholder="Brief description of the estate..."></textarea>
+      </div>
+
+      <p class="error-msg" id="error-msg"></p>
+
+      <button class="btn-submit" id="submit-btn" onclick="handleCreate()">
+        <i class="ph ph-plus"></i> Create Estate
+      </button>
+
+      <div style="text-align:center;margin-top:20px;">
+        <button onclick="handleLogout()" style="background:none;border:none;color:#94a3b8;font-size:14px;cursor:pointer;text-decoration:underline;">
+          Sign out
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Redirect to dashboard if already has estate
+    (async () => {
+      const token = localStorage.getItem('token');
+      if (!token) { window.location.href = '/login.html'; return; }
+      try {
+        const res = await fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) throw new Error();
+        const { user } = await res.json();
+        if (user.estateId) window.location.href = '/'; // already set up
+      } catch {
+        localStorage.removeItem('token');
+        window.location.href = '/login.html';
+      }
+    })();
+
+    async function handleCreate() {
+      const btn = document.getElementById('submit-btn');
+      const errEl = document.getElementById('error-msg');
+      errEl.style.display = 'none';
+
+      const name = document.getElementById('name').value.trim();
+      const location = document.getElementById('location').value.trim();
+      const numberOfUnits = document.getElementById('numberOfUnits').value;
+      const description = document.getElementById('description').value.trim();
+
+      if (!name || !location) {
+        errEl.textContent = 'Estate name and location are required.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Creating...';
+
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('/api/estates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ name, location, numberOfUnits: numberOfUnits ? parseInt(numberOfUnits) : 0, description })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          errEl.textContent = data.error || 'Failed to create estate.';
+          errEl.style.display = 'block';
+          btn.disabled = false;
+          btn.innerHTML = '<i class="ph ph-plus"></i> Create Estate';
+          return;
+        }
+
+        // Success — go to dashboard
+        window.location.href = '/';
+
+      } catch (err) {
+        errEl.textContent = 'Network error. Please try again.';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ph ph-plus"></i> Create Estate';
+      }
+    }
+
+    function handleLogout() {
+      localStorage.removeItem('token');
+      window.location.href = '/login.html';
+    }
+
+    // Allow Enter key to submit
+    document.addEventListener('keydown', e => { if (e.key === 'Enter') handleCreate(); });
+  </script>
+</body>
+</html>

@@ -1,35 +1,138 @@
-<div class="card">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="./styles/estate.css">
+</head>
+<body>
+<div class="estate-page">
+
+  <!-- EDIT CARD -->
+  <div class="card" id="estate-edit-card">
     <div class="card-header">
-        <h2 class="card-title">Estate Settings</h2>
+      <h2 class="card-title">Estate Settings</h2>
+      <span class="estate-id-badge" id="estate-id-badge"></span>
     </div>
-    <form id="estate-form" style="padding: 24px;">
+
+    <div class="estate-loading" id="estate-loading">
+      <i class="ph ph-spinner"></i> Loading estate details...
+    </div>
+
+    <form id="estate-form" class="estate-form" style="display:none;">
+      <div class="form-row">
         <div class="form-group">
-            <label>Estate Name *</label>
-            <input type="text" id="estate-name" required>
-        </div>
-        <div class="form-group">
-            <label>Location *</label>
-            <input type="text" id="estate-location" required>
-        </div>
-        <div class="form-group">
-            <label>Description</label>
-            <textarea id="estate-description" style="width: 100%; padding: 10px 16px; border: 1px solid var(--border-color); border-radius: 8px; font-family: inherit;"></textarea>
+          <label for="estate-name-input">Estate Name *</label>
+          <input type="text" id="estate-name-input" required placeholder="e.g. Amani Estate">
         </div>
         <div class="form-group">
-            <label>Number of Units</label>
-            <input type="number" id="estate-units" min="0">
+          <label for="estate-location-input">Location *</label>
+          <input type="text" id="estate-location-input" required placeholder="e.g. Mombasa, Kenya">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="estate-units-input">Number of Units</label>
+          <input type="number" id="estate-units-input" min="0" placeholder="e.g. 50">
         </div>
         <div class="form-group">
-            <label>Admin Contact Email</label>
-            <input type="email" id="estate-email">
+          <label for="estate-email-input">Admin Contact Email</label>
+          <input type="email" id="estate-email-input" placeholder="admin@example.com">
         </div>
-        <div class="form-group">
-            <label>Admin Phone</label>
-            <input type="tel" id="estate-phone">
-        </div>
-        <div class="form-actions">
-            <button type="button" class="btn btn-secondary" onclick="loadPage('dashboard')">Cancel</button>
-            <button type="submit" class="btn btn-primary">Save Estate Settings</button>
-        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="estate-description-input">Description</label>
+        <textarea id="estate-description-input" placeholder="Brief description of the estate..."></textarea>
+      </div>
+
+      <div class="form-error" id="form-error" style="display:none;"></div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" onclick="loadPage('dashboard')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="save-btn">
+          <i class="ph ph-floppy-disk"></i> Save Changes
+        </button>
+      </div>
     </form>
+  </div>
+
+  <!-- DANGER ZONE CARD -->
+  <div class="card danger-zone-card" id="danger-zone" style="display:none;">
+    <div class="card-header">
+      <h2 class="card-title danger-title">
+        <i class="ph ph-warning-octagon"></i> Danger Zone
+      </h2>
+    </div>
+    <div class="danger-zone-body">
+      <div class="danger-item">
+        <div>
+          <p class="danger-item-title">Delete this estate</p>
+          <p class="danger-item-desc">Permanently delete this estate and all associated data including units, tenants, invoices, payments, and communication logs. This action cannot be undone.</p>
+        </div>
+        <button class="btn btn-danger" onclick="openDeleteModal()">
+          <i class="ph ph-trash"></i> Delete Estate
+        </button>
+      </div>
+    </div>
+  </div>
+
 </div>
+
+<!-- ═══════════════════════════════════════ -->
+<!-- DELETE CONFIRMATION MODAL              -->
+<!-- ═══════════════════════════════════════ -->
+<div class="modal" id="delete-modal">
+  <div class="modal-content delete-modal-content">
+
+    <!-- STEP 1: Type confirmation phrase -->
+    <div id="delete-step-1">
+      <div class="delete-modal-header">
+        <div class="delete-warning-icon">⚠️</div>
+        <h2>Delete Estate</h2>
+        <p>This will permanently delete your estate and <strong>all associated data</strong> including units, tenants, invoices, payments, and communication logs.</p>
+      </div>
+
+      <div class="form-group">
+        <label>To confirm, type the phrase below exactly:</label>
+        <div class="confirm-phrase" id="confirm-phrase-text"></div>
+        <input type="text" id="confirm-phrase-input" placeholder="Type the phrase above..." autocomplete="off" oninput="checkPhrase()">
+      </div>
+
+      <div class="form-error" id="step1-error" style="display:none;"></div>
+
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+        <button class="btn btn-danger" id="step1-next-btn" onclick="goToStep2()" disabled>
+          Continue
+        </button>
+      </div>
+    </div>
+
+    <!-- STEP 2: Password confirmation -->
+    <div id="delete-step-2" style="display:none;">
+      <div class="delete-modal-header">
+        <div class="delete-warning-icon">🔐</div>
+        <h2>Confirm Your Password</h2>
+        <p>Enter your account password to authorise the deletion.</p>
+      </div>
+
+      <div class="form-group">
+        <label for="delete-password">Password</label>
+        <input type="password" id="delete-password" placeholder="Your account password" autocomplete="current-password">
+      </div>
+
+      <div class="form-error" id="step2-error" style="display:none;"></div>
+
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="goBackToStep1()">Back</button>
+        <button class="btn btn-danger" id="delete-confirm-btn" onclick="confirmDelete()">
+          <i class="ph ph-trash"></i> Delete Forever
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

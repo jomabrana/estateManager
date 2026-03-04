@@ -1,34 +1,35 @@
-// backend/src/controllers/estateController.js
 const prisma = require("../../prisma/client");
 
 // ─── CREATE ESTATE ───────────────────────────────────────────
 // POST /api/estates
-// Protected — requires valid JWT token (admin only)
-// Body: { name, location, description, numberOfUnits }
-// Returns: { message, estate: {...} }
+// Auto-links the creating user to the new estate
 const createEstate = async (req, res) => {
   const { name, location, description, numberOfUnits } = req.body;
 
-  // Validation
   if (!name || !location)
     return res.status(400).json({ error: "Name and location are required" });
 
   try {
-    // Check if estate already exists
-    const existing = await prisma.estate.findFirst({
-      where: { name }
-    });
+    const existing = await prisma.estate.findFirst({ where: { name } });
     if (existing)
       return res.status(409).json({ error: "Estate with this name already exists" });
 
-    // Create estate
-    const estate = await prisma.estate.create({
-      data: {
-        name,
-        location,
-        description: description || null,
-        numberOfUnits: numberOfUnits || 0,
-      }
+    // Create estate and immediately link creating user in a transaction
+    const [estate] = await prisma.$transaction([
+      prisma.estate.create({
+        data: {
+          name,
+          location,
+          description: description || null,
+          numberOfUnits: numberOfUnits ? parseInt(numberOfUnits) : 0,
+        }
+      })
+    ]);
+
+    // Link this user to the newly created estate
+    await prisma.user.update({
+      where: { id: req.user.userId },
+      data: { estateId: estate.id }
     });
 
     return res.status(201).json({
@@ -48,23 +49,12 @@ const createEstate = async (req, res) => {
   }
 };
 
-// ─── GET ALL ESTATES ───────────────────────────────────────────
-// GET /api/estates
-// Protected — requires valid JWT token
-// Returns: { estates: [...] }
+// ─── GET ALL ESTATES ─────────────────────────────────────────
 const getEstates = async (req, res) => {
   try {
     const estates = await prisma.estate.findMany({
-      select: {
-        id: true,
-        name: true,
-        location: true,
-        description: true,
-        numberOfUnits: true,
-        createdAt: true,
-      }
+      select: { id: true, name: true, location: true, description: true, numberOfUnits: true, createdAt: true }
     });
-
     return res.json({ estates });
   } catch (err) {
     console.error("Get estates error:", err);
@@ -72,33 +62,17 @@ const getEstates = async (req, res) => {
   }
 };
 
-// ─── GET SINGLE ESTATE ───────────────────────────────────────────
-// GET /api/estates/:id
-// Protected — requires valid JWT token
-// Returns: { estate: {...} }
+// ─── GET SINGLE ESTATE ───────────────────────────────────────
 const getEstate = async (req, res) => {
   const { id } = req.params;
-
-  if (!id)
-    return res.status(400).json({ error: "Estate ID is required" });
+  if (!id) return res.status(400).json({ error: "Estate ID is required" });
 
   try {
-    const estateId = parseInt(id);
     const estate = await prisma.estate.findUnique({
-      where: { id: estateId },
-      select: {
-        id: true,
-        name: true,
-        location: true,
-        description: true,
-        numberOfUnits: true,
-        createdAt: true,
-      }
+      where: { id: parseInt(id) },
+      select: { id: true, name: true, location: true, description: true, numberOfUnits: true, createdAt: true }
     });
-
-    if (!estate)
-      return res.status(404).json({ error: "Estate not found" });
-
+    if (!estate) return res.status(404).json({ error: "Estate not found" });
     return res.json({ estate });
   } catch (err) {
     console.error("Get estate error:", err);
@@ -107,50 +81,29 @@ const getEstate = async (req, res) => {
 };
 
 // ─── UPDATE ESTATE ───────────────────────────────────────────
-// PUT /api/estates/:id
-// Protected — requires valid JWT token (admin only)
-// Body: { name, location, description, numberOfUnits } (partial update OK)
-// Returns: { message, estate: {...} }
 const updateEstate = async (req, res) => {
   const { id } = req.params;
   const { name, location, description, numberOfUnits } = req.body;
 
-  if (!id)
-    return res.status(400).json({ error: "Estate ID is required" });
+  if (!id) return res.status(400).json({ error: "Estate ID is required" });
 
   try {
-    const estateId = parseInt(id);
+    const estate = await prisma.estate.findUnique({ where: { id: parseInt(id) } });
+    if (!estate) return res.status(404).json({ error: "Estate not found" });
 
-    // Check if estate exists
-    const estate = await prisma.estate.findUnique({ where: { id: estateId } });
-    if (!estate)
-      return res.status(404).json({ error: "Estate not found" });
-
-    // Build update data (only include provided fields)
     const updateData = {};
     if (name !== undefined) updateData.name = name;
     if (location !== undefined) updateData.location = location;
     if (description !== undefined) updateData.description = description;
-    if (numberOfUnits !== undefined) updateData.numberOfUnits = numberOfUnits;
+    if (numberOfUnits !== undefined) updateData.numberOfUnits = parseInt(numberOfUnits);
 
-    // Update estate
     const updated = await prisma.estate.update({
-      where: { id: estateId },
+      where: { id: parseInt(id) },
       data: updateData,
-      select: {
-        id: true,
-        name: true,
-        location: true,
-        description: true,
-        numberOfUnits: true,
-        createdAt: true,
-      }
+      select: { id: true, name: true, location: true, description: true, numberOfUnits: true, createdAt: true }
     });
 
-    return res.json({
-      message: "Estate updated successfully",
-      estate: updated
-    });
+    return res.json({ message: "Estate updated successfully", estate: updated });
   } catch (err) {
     console.error("Update estate error:", err);
     return res.status(500).json({ error: "Server error" });
@@ -158,26 +111,15 @@ const updateEstate = async (req, res) => {
 };
 
 // ─── DELETE ESTATE ───────────────────────────────────────────
-// DELETE /api/estates/:id
-// Protected — requires valid JWT token (admin only)
-// Returns: { message: "Estate deleted successfully" }
 const deleteEstate = async (req, res) => {
   const { id } = req.params;
-
-  if (!id)
-    return res.status(400).json({ error: "Estate ID is required" });
+  if (!id) return res.status(400).json({ error: "Estate ID is required" });
 
   try {
-    const estateId = parseInt(id);
+    const estate = await prisma.estate.findUnique({ where: { id: parseInt(id) } });
+    if (!estate) return res.status(404).json({ error: "Estate not found" });
 
-    // Check if estate exists
-    const estate = await prisma.estate.findUnique({ where: { id: estateId } });
-    if (!estate)
-      return res.status(404).json({ error: "Estate not found" });
-
-    // Delete estate (this will cascade delete related records if configured in schema)
-    await prisma.estate.delete({ where: { id: estateId } });
-
+    await prisma.estate.delete({ where: { id: parseInt(id) } });
     return res.json({ message: "Estate deleted successfully" });
   } catch (err) {
     console.error("Delete estate error:", err);
@@ -185,10 +127,4 @@ const deleteEstate = async (req, res) => {
   }
 };
 
-module.exports = {
-  createEstate,
-  getEstates,
-  getEstate,
-  updateEstate,
-  deleteEstate
-};
+module.exports = { createEstate, getEstates, getEstate, updateEstate, deleteEstate };

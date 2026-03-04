@@ -1,17 +1,20 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const prisma = require('../prisma/client'); // import shared instance
+const prisma = require('../prisma/client');
 const authRoutes = require('./routes/authRoutes');
+const resourceRoutes = require('./routes/router');
 const path = require('path');
-
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '../public'))); // static files
+
 app.use('/api/auth', authRoutes);
+app.use('/api', resourceRoutes);              // <-- was missing
+
+app.use(express.static(path.join(__dirname, '../public')));
 
 app.get('/health', (req, res) => {
   res.json({ status: 'active', message: 'Service Charge API is healthy and running' });
@@ -24,6 +27,11 @@ app.get('/dbstatus', async (req, res) => {
   } catch (err) {
     res.status(500).json({ status: 'error', error: err.message });
   }
+});
+
+// SPA fallback — must be last
+app.get('/{*path}', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public', 'index.html'));
 });
 
 const PORT = process.env.PORT || 5000;

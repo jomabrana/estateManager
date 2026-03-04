@@ -70,9 +70,12 @@
                 <div class="header-left">
                     <h1 id="page-title" class="page-title">Dashboard</h1>
                     <p id="page-subtitle" class="page-subtitle">
-                        <span id="estate-name">Amani Estate</span>
-                        <a href="#" onclick="loadPage('estate'); return false;" style="margin-left: 8px; color: var(--primary); text-decoration: none; font-weight: 600;">Edit</a>
-                    </p>
+    <span id="estate-name"></span>
+    <a href="#" id="estate-edit-link" onclick="loadPage('estate'); return false;"
+       style="margin-left: 8px; color: var(--primary); text-decoration: none; font-weight: 600; display:none;">
+       Edit
+    </a>
+</p>
                 </div>
                 
                 <div class="header-right">

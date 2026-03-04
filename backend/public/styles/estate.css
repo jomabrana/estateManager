@@ -1,0 +1,146 @@
+.estate-page {
+  max-width: 760px;
+}
+
+/* ── FORM LAYOUT ─────────────────────────────────────────── */
+
+.estate-form {
+  padding: 8px 0 0;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.estate-id-badge {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-light);
+  background: var(--body-bg);
+  border: 1px solid var(--border-color);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.estate-loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.form-error {
+  background: #fef2f2;
+  color: var(--danger);
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+/* ── DANGER ZONE ─────────────────────────────────────────── */
+
+.danger-zone-card {
+  border-color: #fecaca;
+  background: #fffafa;
+}
+
+.danger-title {
+  color: var(--danger) !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.danger-zone-body {
+  padding: 4px 0;
+}
+
+.danger-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 8px 0;
+}
+
+.danger-item-title {
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 4px;
+  font-size: 0.95rem;
+}
+
+.danger-item-desc {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  max-width: 480px;
+}
+
+/* ── DELETE MODAL ────────────────────────────────────────── */
+
+.delete-modal-content {
+  max-width: 540px;
+  width: 92%;
+}
+
+.delete-modal-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.delete-warning-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.delete-modal-header h2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 10px;
+}
+
+.delete-modal-header p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.confirm-phrase {
+  background: #f1f5f9;
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-family: monospace;
+  font-size: 0.82rem;
+  color: var(--danger);
+  font-weight: 600;
+  line-height: 1.6;
+  margin-bottom: 12px;
+  word-break: break-word;
+  user-select: all;
+}
+
+/* ── RESPONSIVE ──────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .danger-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .danger-item .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

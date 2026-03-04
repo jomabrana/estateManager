@@ -21,24 +21,26 @@ enum InvoiceStatus {
 }
 
 model User {
-  id        Int      @id @default(autoincrement()) 
+  id        Int      @id @default(autoincrement())
   fullName  String?
   email     String   @unique
-  password  String   // Use String here (bcrypt will hash this)
+  password  String
   role      String   @default("admin")
+  estateId  Int?
+  estate    Estate?  @relation(fields: [estateId], references: [id])
   createdAt DateTime @default(now())
 }
 
 model Estate {
-  id        Int      @id @default(autoincrement())
-  name      String
-  location  String
-  units     Unit[]
-  
-  createdAt DateTime @default(now())
+  id             Int      @id @default(autoincrement())
+  name           String
+  location       String
+  description    String?
+  numberOfUnits  Int      @default(0)
+  users          User[]
+  units          Unit[]
+  createdAt      DateTime @default(now())
 }
-
-
 
 model Unit {
   id             Int        @id @default(autoincrement())
@@ -51,21 +53,19 @@ model Unit {
 }
 
 model Resident {
-  id           Int           @id @default(autoincrement())
-  unitId       Int
-  unit         Unit          @relation(fields: [unitId], references: [id])
-  fullName    String     
-  email        String        @unique
-  phone        String?      
-  type         ResidentType
-  moveInDate   DateTime
-  isActive     Boolean       @default(true)
-  invoices     Invoice[]
-  logs         CommunicationLog[]
-  createdAt    DateTime      @default(now())
+  id         Int              @id @default(autoincrement())
+  unitId     Int
+  unit       Unit             @relation(fields: [unitId], references: [id])
+  fullName   String
+  email      String           @unique
+  phone      String?
+  type       ResidentType
+  moveInDate DateTime
+  isActive   Boolean          @default(true)
+  invoices   Invoice[]
+  logs       CommunicationLog[]
+  createdAt  DateTime         @default(now())
 }
-
-
 
 model Invoice {
   id           Int           @id @default(autoincrement())
@@ -79,33 +79,33 @@ model Invoice {
   lateFee      Decimal       @default(0) @db.Decimal(10, 2)
   status       InvoiceStatus @default(PENDING)
   payments     Payment[]
-  referenceNo   String        @unique
-billingMonth  Int
-billingYear   Int
-daysOverdue   Int           @default(0)
+  referenceNo  String        @unique
+  billingMonth Int
+  billingYear  Int
+  daysOverdue  Int           @default(0)
 
-@@unique([residentId, billingMonth, billingYear])
+  @@unique([residentId, billingMonth, billingYear])
 }
 
 model Payment {
-  id           Int      @id @default(autoincrement())
-  invoiceId    Int
-  invoice      Invoice  @relation(fields: [invoiceId], references: [id])
-  paymentDate  DateTime @default(now())
-  amountPaid   Decimal  @db.Decimal(10, 2)
-  method       String
-  receiptNo    String   @unique
+  id          Int      @id @default(autoincrement())
+  invoiceId   Int
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+  paymentDate DateTime @default(now())
+  amountPaid  Decimal  @db.Decimal(10, 2)
+  method      String
+  receiptNo   String   @unique
   notes       String?
 }
 
 model CommunicationLog {
-  id           Int      @id @default(autoincrement())
-  residentId   Int
-  resident     Resident @relation(fields: [residentId], references: [id])
-  sentAt       DateTime @default(now())
-  type         String
-  channel      String
-  content      String
-  sentBy       String
+  id         Int      @id @default(autoincrement())
+  residentId Int
+  resident   Resident @relation(fields: [residentId], references: [id])
+  sentAt     DateTime @default(now())
+  type       String
+  channel    String
+  content    String
+  sentBy     String
   followUp   Boolean  @default(false)
 }
