@@ -1,11 +1,11 @@
 <!-- public/residents.html — no html/head/body tags -->
 
-<link rel="stylesheet" href="/styles/residents.css?v=2">
+<link rel="stylesheet" href="/backend/public/styles/residents.css">
 
 <div class="page-actions">
-  <button class="btn btn-primary" onclick="openAddModal()">
+  <a href="/add-resident.html" class="btn btn-primary">
     <i class="ph ph-user-plus"></i> Add Resident
-  </button>
+</a>
   <button class="btn btn-secondary" onclick="exportResidentsCSV()">
     <i class="ph ph-export"></i> Export CSV
   </button>
@@ -77,122 +77,3 @@
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════ -->
-<!-- ADD / EDIT MODAL                       -->
-<!-- ═══════════════════════════════════════ -->
-<div id="resident-modal" class="modal">
-  <div class="modal-content resident-modal-content">
-    <div class="modal-header" id="modal-title">Add Resident</div>
-
-    <div class="resident-form-grid">
-
-      <!-- LEFT: Unit details -->
-      <div class="form-section">
-        <h3 class="form-section-title"><i class="ph ph-house"></i> Unit Details</h3>
-
-        <div class="form-group">
-          <label>Unit Number *</label>
-          <input type="text" id="f-unit-number" placeholder="e.g. A-01" required>
-        </div>
-        <div class="form-group">
-          <label>Monthly Charge (KES) *</label>
-          <input type="number" id="f-monthly-charge" placeholder="e.g. 15000" min="0" required>
-        </div>
-      </div>
-
-      <!-- RIGHT: Resident details -->
-      <div class="form-section">
-        <h3 class="form-section-title"><i class="ph ph-user"></i> Resident Details</h3>
-
-        <div class="form-group">
-          <label>Full Name *</label>
-          <input type="text" id="f-full-name" placeholder="e.g. Jane Doe" required>
-        </div>
-
-        <div class="form-group">
-          <label>Occupancy Type *</label>
-          <select id="f-type">
-            <option value="OWNER_OCCUPIER">Owner Occupier</option>
-            <option value="DIRECT_TENANT">Direct Tenant</option>
-            <option value="MANAGED_TENANT">Managed Tenant</option>
-            <option value="ABSENTEE_OWNER">Absentee Owner</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label>Move-in Date *</label>
-          <input type="date" id="f-move-in">
-        </div>
-
-        <div class="form-group">
-          <label>Status</label>
-          <select id="f-is-active">
-            <option value="true">Active</option>
-            <option value="false">Inactive</option>
-          </select>
-        </div>
-      </div>
-    </div>
-
-    <!-- EMAILS -->
-    <div class="form-section full-width">
-      <div class="multi-field-header">
-        <h3 class="form-section-title"><i class="ph ph-envelope"></i> Email Addresses</h3>
-        <button type="button" class="btn-add-field" onclick="addEmailField()">
-          <i class="ph ph-plus"></i> Add Email
-        </button>
-      </div>
-      <div id="emails-container"></div>
-    </div>
-
-    <!-- PHONES -->
-    <div class="form-section full-width">
-      <div class="multi-field-header">
-        <h3 class="form-section-title"><i class="ph ph-phone"></i> Phone Numbers</h3>
-        <button type="button" class="btn-add-field" onclick="addPhoneField()">
-          <i class="ph ph-plus"></i> Add Phone
-        </button>
-      </div>
-      <div id="phones-container"></div>
-    </div>
-
-    <!-- NOTES -->
-    <div class="form-section full-width">
-      <h3 class="form-section-title"><i class="ph ph-note"></i> Notes</h3>
-      <textarea id="f-notes" placeholder="Any additional notes about this resident..."></textarea>
-    </div>
-
-    <div class="form-error" id="modal-error" style="display:none;"></div>
-
-    <div class="form-actions">
-      <button class="btn btn-secondary" onclick="closeResidentModal()">Cancel</button>
-      <button class="btn btn-primary" id="modal-save-btn" onclick="saveResident()">
-        <i class="ph ph-floppy-disk"></i> Save Resident
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════ -->
-<!-- DELETE CONFIRM MODAL                   -->
-<!-- ═══════════════════════════════════════ -->
-<div id="delete-resident-modal" class="modal">
-  <div class="modal-content" style="max-width:420px;">
-    <div class="modal-header">Delete Resident</div>
-    <p style="color:var(--text-muted);margin-bottom:20px;font-size:0.95rem;">
-      Are you sure you want to delete <strong id="delete-resident-name"></strong>?
-    </p>
-    <div class="form-group">
-      <label>
-        <input type="checkbox" id="delete-unit-checkbox" style="width:auto;margin-right:8px;">
-        Also delete unit <strong id="delete-unit-label"></strong> (only if no other residents)
-      </label>
-    </div>
-    <div class="form-actions">
-      <button class="btn btn-secondary" onclick="closeModal('delete-resident-modal')">Cancel</button>
-      <button class="btn btn-danger" onclick="confirmDeleteResident()">
-        <i class="ph ph-trash"></i> Delete
-      </button>
-    </div>
-  </div>
-</div>

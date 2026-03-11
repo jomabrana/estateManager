@@ -1,77 +1,101 @@
+<!-- public/invoices.html — SPA partial, no html/head/body tags -->
+<link rel="stylesheet" href="/styles/invoices.css">
+
 <div class="page-actions">
-    <button class="btn btn-primary" onclick="openModal('invoice-modal')">
-        <i class="ph ph-plus"></i> Create Invoice
-    </button>
-    <button class="btn btn-secondary" onclick="openModal('bulk-invoice-modal')">
-        <i class="ph ph-stack"></i> Bulk Generate
-    </button>
+  <button class="btn btn-primary" onclick="window.location.href='/add-invoice.html'">
+    <i class="ph ph-plus"></i> Create Invoice
+  </button>
+  <button class="btn btn-secondary" onclick="generateMonthlyInvoices()">
+    <i class="ph ph-stack"></i> Generate This Month
+  </button>
+  <button class="btn btn-secondary" onclick="exportInvoicesCSV()">
+    <i class="ph ph-export"></i> Export CSV
+  </button>
 </div>
 
+<!-- Counters -->
+<div class="invoice-counters">
+  <div class="counter-card">
+    <div class="icon-bg blue"><i class="ph ph-receipt"></i></div>
+    <div>
+      <p class="counter-label">Total Invoices</p>
+      <p class="counter-value" id="inv-count-total">0</p>
+    </div>
+  </div>
+  <div class="counter-card">
+    <div class="icon-bg orange"><i class="ph ph-clock"></i></div>
+    <div>
+      <p class="counter-label">Pending</p>
+      <p class="counter-value" id="inv-count-pending">0</p>
+    </div>
+  </div>
+  <div class="counter-card">
+    <div class="icon-bg red"><i class="ph ph-warning"></i></div>
+    <div>
+      <p class="counter-label">Overdue</p>
+      <p class="counter-value" id="inv-count-overdue">0</p>
+    </div>
+  </div>
+  <div class="counter-card">
+    <div class="icon-bg yellow"><i class="ph ph-minus-circle"></i></div>
+    <div>
+      <p class="counter-label">Partial</p>
+      <p class="counter-value" id="inv-count-partial">0</p>
+    </div>
+  </div>
+  <div class="counter-card">
+    <div class="icon-bg green"><i class="ph ph-check-circle"></i></div>
+    <div>
+      <p class="counter-label">Paid</p>
+      <p class="counter-value" id="inv-count-paid">0</p>
+    </div>
+  </div>
+</div>
+
+<!-- Filter + Search -->
+<div class="invoice-toolbar">
+  <input
+    type="text"
+    id="inv-search"
+    placeholder="Search by resident, unit, reference..."
+    oninput="filterInvoices(this.value)"
+  >
+  <div class="filter-tabs" id="inv-filter-tabs">
+    <button class="filter-tab active" data-status="ALL"      onclick="setStatusFilter('ALL',this)">All</button>
+    <button class="filter-tab"        data-status="PENDING"  onclick="setStatusFilter('PENDING',this)">Pending</button>
+    <button class="filter-tab"        data-status="OVERDUE"  onclick="setStatusFilter('OVERDUE',this)">Overdue</button>
+    <button class="filter-tab"        data-status="PARTIAL"  onclick="setStatusFilter('PARTIAL',this)">Partial</button>
+    <button class="filter-tab"        data-status="PAID"     onclick="setStatusFilter('PAID',this)">Paid</button>
+  </div>
+</div>
+
+<!-- Table -->
 <div class="card">
-    <div class="card-header">
-        <h2 class="card-title">Invoices</h2>
-    </div>
-    <div class="table-responsive">
-        <table>
-            <thead>
-                <tr>
-                    <th>Invoice ID</th>
-                    <th>Resident</th>
-                    <th>Amount</th>
-                    <th>Due Date</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody id="invoices-tbody">
-                <tr><td colspan="6" style="text-align: center; padding: 40px;">Loading...</td></tr>
-            </tbody>
-        </table>
-    </div>
+  <div class="card-header">
+    <h2 class="card-title">Invoices</h2>
+    <span class="resident-count" id="inv-showing">—</span>
+  </div>
+  <div class="table-responsive">
+    <table>
+      <thead>
+        <tr>
+          <th>Reference</th>
+          <th>Resident</th>
+          <th>Unit</th>
+          <th>Period</th>
+          <th>Amount</th>
+          <th>Paid</th>
+          <th>Outstanding</th>
+          <th>Due Date</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="invoices-tbody">
+        <tr><td colspan="10" class="table-loading">Loading invoices...</td></tr>
+      </tbody>
+    </table>
+  </div>
 </div>
 
-<div id="invoice-modal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">Create Invoice</div>
-        <form id="invoice-form">
-            <div class="form-group">
-                <label>Resident/Unit *</label>
-                <select id="invoice-resident" required style="width: 100%; padding: 10px 16px; border: 1px solid var(--border-color); border-radius: 8px;">
-                    <option value="">Select...</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Amount (KES) *</label>
-                <input type="number" id="invoice-amount" placeholder="5500" required>
-            </div>
-            <div class="form-group">
-                <label>Due Date *</label>
-                <input type="date" id="invoice-due-date" required>
-            </div>
-            <div class="form-actions">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('invoice-modal')">Cancel</button>
-                <button type="submit" class="btn btn-primary">Create</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div id="bulk-invoice-modal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">Bulk Generate Invoices</div>
-        <form id="bulk-invoice-form">
-            <div class="form-group">
-                <label>Amount per Unit (KES) *</label>
-                <input type="number" id="bulk-amount" placeholder="5500" required>
-            </div>
-            <div class="form-group">
-                <label>Due Date *</label>
-                <input type="date" id="bulk-due-date" required>
-            </div>
-            <div class="form-actions">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('bulk-invoice-modal')">Cancel</button>
-                <button type="submit" class="btn btn-primary">Generate</button>
-            </div>
-        </form>
-    </div>
-</div>
+<!-- index.js loadPage() injects invoices.js and calls loadInvoices() automatically -->

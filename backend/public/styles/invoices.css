@@ -1,0 +1,108 @@
+/* invoices.css */
+
+/* ── Counters row ── */
+.invoice-counters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.counter-card {
+  background: white;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  box-shadow: var(--card-shadow);
+  flex: 1;
+  min-width: 120px;
+}
+
+.icon-bg.red    { background: #fef2f2; color: #ef4444; }
+.icon-bg.yellow { background: #fffbeb; color: #f59e0b; }
+
+/* ── Toolbar ── */
+.invoice-toolbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.invoice-toolbar input {
+  flex: 1;
+  min-width: 200px;
+  padding: 10px 16px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+/* ── Filter tabs ── */
+.filter-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filter-tab {
+  padding: 7px 14px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 20px;
+  background: white;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  color: var(--text-secondary, #64748b);
+}
+.filter-tab:hover  { background: var(--bg-secondary, #f8fafc); }
+.filter-tab.active {
+  background: var(--primary, #2563eb);
+  color: white;
+  border-color: var(--primary, #2563eb);
+}
+
+/* ── Clickable rows ── */
+.clickable-row:hover td {
+  background: var(--bg-secondary, #f8fafc);
+}
+.clickable-row:active td {
+  background: #eff6ff;
+}
+.ref-chip {
+  font-family: monospace;
+  font-size: 0.8rem;
+  background: var(--bg-secondary, #f1f5f9);
+  padding: 3px 8px;
+  border-radius: 6px;
+  color: var(--text-secondary, #475569);
+}
+
+.text-success { color: var(--success, #22c55e); }
+.text-danger  { color: var(--danger, #ef4444); }
+.text-muted   { color: var(--text-muted, #94a3b8); }
+
+.badge-danger {
+  background: #fef2f2;
+  color: #ef4444;
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.badge-info {
+  background: #eff6ff;
+  color: #2563eb;
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}

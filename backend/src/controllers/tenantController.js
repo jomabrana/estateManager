@@ -23,7 +23,6 @@ async function syncEstateUnitCount(estateId) {
   }
 }
 
-// Check duplicate emails across all residents in this estate (excluding a specific residentId)
 async function checkDuplicateEmails(estateId, emails, excludeResidentId = null) {
   if (!emails?.length) return null;
   const residents = await prisma.resident.findMany({
@@ -40,12 +39,34 @@ async function checkDuplicateEmails(estateId, emails, excludeResidentId = null) 
   return null;
 }
 
-// ─── CREATE UNIT + RESIDENT TOGETHER ─────────────────────────
+// ─── CREATE RESIDENT (optionally reusing an existing vacant unit) ─────────────
+// POST /api/tenants
+//
+// Two modes:
+//   A) unitId in body  → assign resident to existing unit (vacant unit flow).
+//                        Skip unit creation and the duplicate-unit-number check.
+//   B) no unitId       → create a brand-new unit + resident (original flow).
 const createTenant = async (req, res) => {
-  const { unitNumber, monthlyCharge, fullName, emails, phones, type, moveInDate, notes } = req.body;
+  const {
+    unitId,           // present when coming from a vacant-unit row click
+    unitNumber,
+    monthlyCharge,
+    fullName,
+    emails,
+    phones,
+    type,
+    moveInDate,
+    notes,
+    isActive
+  } = req.body;
 
-  if (!unitNumber || monthlyCharge === undefined || !fullName || !type || !moveInDate)
-    return res.status(400).json({ error: "unitNumber, monthlyCharge, fullName, type and moveInDate are required" });
+  // Basic required-field check (unitNumber / monthlyCharge only needed when
+  // creating a brand-new unit, i.e. when unitId is NOT supplied)
+  if (!fullName || !type || !moveInDate)
+    return res.status(400).json({ error: "fullName, type and moveInDate are required" });
+
+  if (!unitId && (!unitNumber || monthlyCharge === undefined))
+    return res.status(400).json({ error: "unitNumber and monthlyCharge are required when not linking to an existing unit" });
 
   const emailList = Array.isArray(emails) ? emails.filter(Boolean) : [];
   const phoneList = Array.isArray(phones) ? phones.filter(Boolean) : [];
@@ -53,32 +74,77 @@ const createTenant = async (req, res) => {
   try {
     const estateId = await requireEstateId(req.user.userId);
 
-    // Dedup: block duplicate unit number
-    const existingUnit = await prisma.unit.findFirst({ where: { estateId, unitNumber } });
-    if (existingUnit)
-      return res.status(409).json({ error: `Unit "${unitNumber}" already exists in this estate` });
-
-    // Dedup: block duplicate emails across estate
+    // ── Dedup: block duplicate emails across estate ──────────────
     const emailConflict = await checkDuplicateEmails(estateId, emailList);
     if (emailConflict)
       return res.status(409).json({ error: emailConflict });
 
-    const result = await prisma.$transaction(async (tx) => {
-      const unit = await tx.unit.create({
-        data: { estateId, unitNumber, monthlyCharge: parseFloat(monthlyCharge) }
+    let result;
+
+    if (unitId) {
+      // ── MODE A: Assign to existing vacant unit ───────────────────
+      const parsedUnitId = parseInt(unitId);
+
+      // Verify the unit actually belongs to this estate
+      const existingUnit = await prisma.unit.findFirst({
+        where: { id: parsedUnitId, estateId }
       });
-      const resident = await tx.resident.create({
+      if (!existingUnit)
+        return res.status(404).json({ error: "Unit not found in this estate" });
+
+      const resident = await prisma.resident.create({
         data: {
-          unitId: unit.id, fullName, emails: emailList, phones: phoneList,
-          type, moveInDate: new Date(moveInDate), notes: notes || null, isActive: true
+          unitId:    parsedUnitId,
+          fullName,
+          emails:    emailList,
+          phones:    phoneList,
+          type,
+          moveInDate: new Date(moveInDate),
+          notes:     notes || null,
+          isActive:  isActive !== undefined ? Boolean(isActive) : true
+        },
+        include: {
+          unit: { select: { id: true, unitNumber: true, monthlyCharge: true } }
         }
       });
-      return { unit, resident };
+
+      result = { unit: existingUnit, resident };
+
+    } else {
+      // ── MODE B: Create brand-new unit + resident ─────────────────
+      const existingUnit = await prisma.unit.findFirst({ where: { estateId, unitNumber } });
+      if (existingUnit)
+        return res.status(409).json({ error: `Unit "${unitNumber}" already exists in this estate` });
+
+      result = await prisma.$transaction(async (tx) => {
+        const unit = await tx.unit.create({
+          data: { estateId, unitNumber, monthlyCharge: parseFloat(monthlyCharge) }
+        });
+        const resident = await tx.resident.create({
+          data: {
+            unitId:    unit.id,
+            fullName,
+            emails:    emailList,
+            phones:    phoneList,
+            type,
+            moveInDate: new Date(moveInDate),
+            notes:     notes || null,
+            isActive:  isActive !== undefined ? Boolean(isActive) : true
+          }
+        });
+        return { unit, resident };
+      });
+
+      // Only sync count when a new unit was actually created
+      await syncEstateUnitCount(estateId);
+    }
+
+    return res.status(201).json({
+      message:  unitId ? "Resident assigned to existing unit" : "Unit and resident created",
+      unit:     result.unit,
+      resident: result.resident
     });
 
-    await syncEstateUnitCount(estateId);
-
-    return res.status(201).json({ message: "Unit and resident created", unit: result.unit, resident: result.resident });
   } catch (err) {
     if (err.message === "NO_ESTATE")
       return res.status(400).json({ error: "Your account is not linked to an estate" });
@@ -88,7 +154,6 @@ const createTenant = async (req, res) => {
 };
 
 // ─── GET ALL RESIDENTS (flat, scoped to estate) ───────────────
-// GET /api/tenants
 const getTenants = async (req, res) => {
   try {
     const estateId = await requireEstateId(req.user.userId);
@@ -110,8 +175,7 @@ const getTenants = async (req, res) => {
   }
 };
 
-// ─── GET SINGLE RESIDENT ─────────────────────────────────────
-// GET /api/tenants/:id
+// ─── GET SINGLE RESIDENT ──────────────────────────────────────
 const getTenant = async (req, res) => {
   try {
     const estateId = await requireEstateId(req.user.userId);
@@ -133,7 +197,7 @@ const getTenant = async (req, res) => {
   }
 };
 
-// ─── UPDATE RESIDENT ─────────────────────────────────────────
+// ─── UPDATE RESIDENT ──────────────────────────────────────────
 const updateTenant = async (req, res) => {
   const { fullName, emails, phones, type, moveInDate, notes, isActive, unitNumber, monthlyCharge } = req.body;
 
@@ -147,7 +211,6 @@ const updateTenant = async (req, res) => {
 
     const emailList = Array.isArray(emails) ? emails.filter(Boolean) : undefined;
 
-    // Dedup: block unit number conflict on edit (excluding current unit)
     if (unitNumber && unitNumber !== resident.unit.unitNumber) {
       const conflict = await prisma.unit.findFirst({
         where: { estateId, unitNumber, NOT: { id: resident.unitId } }
@@ -156,7 +219,6 @@ const updateTenant = async (req, res) => {
         return res.status(409).json({ error: `Unit "${unitNumber}" already exists in this estate` });
     }
 
-    // Dedup: block email conflict on edit (excluding this resident)
     if (emailList?.length) {
       const emailConflict = await checkDuplicateEmails(estateId, emailList, resident.id);
       if (emailConflict)
@@ -165,20 +227,20 @@ const updateTenant = async (req, res) => {
 
     const result = await prisma.$transaction(async (tx) => {
       const unitData = {};
-      if (unitNumber !== undefined) unitData.unitNumber = unitNumber;
+      if (unitNumber    !== undefined) unitData.unitNumber    = unitNumber;
       if (monthlyCharge !== undefined) unitData.monthlyCharge = parseFloat(monthlyCharge);
       if (Object.keys(unitData).length) {
         await tx.unit.update({ where: { id: resident.unitId }, data: unitData });
       }
 
       const residentData = {};
-      if (fullName !== undefined)   residentData.fullName   = fullName;
-      if (emailList !== undefined)  residentData.emails     = emailList;
-      if (phones !== undefined)     residentData.phones     = Array.isArray(phones) ? phones.filter(Boolean) : [];
-      if (type !== undefined)       residentData.type       = type;
-      if (moveInDate !== undefined) residentData.moveInDate = new Date(moveInDate);
-      if (notes !== undefined)      residentData.notes      = notes;
-      if (isActive !== undefined)   residentData.isActive   = isActive;
+      if (fullName    !== undefined) residentData.fullName   = fullName;
+      if (emailList   !== undefined) residentData.emails     = emailList;
+      if (phones      !== undefined) residentData.phones     = Array.isArray(phones) ? phones.filter(Boolean) : [];
+      if (type        !== undefined) residentData.type       = type;
+      if (moveInDate  !== undefined) residentData.moveInDate = new Date(moveInDate);
+      if (notes       !== undefined) residentData.notes      = notes;
+      if (isActive    !== undefined) residentData.isActive   = isActive;
 
       return tx.resident.update({
         where: { id: resident.id },
@@ -196,9 +258,8 @@ const updateTenant = async (req, res) => {
   }
 };
 
-// ─── DELETE RESIDENT ─────────────────────────────────────────
+// ─── DELETE RESIDENT ──────────────────────────────────────────
 // DELETE /api/tenants/:id?deleteUnit=true
-// deleteUnit=true also removes the unit if it has no other residents
 const deleteTenant = async (req, res) => {
   const deleteUnit = req.query.deleteUnit === "true";
 
@@ -214,7 +275,6 @@ const deleteTenant = async (req, res) => {
     await prisma.$transaction(async (tx) => {
       await tx.resident.delete({ where: { id: resident.id } });
 
-      // If deleteUnit flag set and no other residents remain, delete unit too
       if (deleteUnit && resident.unit.residents.length === 1) {
         await tx.unit.delete({ where: { id: resident.unitId } });
       }

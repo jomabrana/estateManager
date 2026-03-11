@@ -55,7 +55,7 @@ const RESIDENTS = [
 
 async function seed() {
   try {
-    console.log('🌱 Starting seed process...\n');
+    console.log('🌱 Starting tenant seed process...\n');
 
     // ── ADMIN USER ──────────────────────────────────────────────
     let user = await prisma.user.findUnique({ where: { email: 'admin1@test.com' } });
@@ -152,7 +152,6 @@ async function seed() {
     console.log('🔑 Login Credentials:');
     console.log('   Email:    admin1@test.com');
     console.log('   Password: ordwasp0.1');
-    console.log('\n📍 Test URL: http://localhost:5000/login.html');
     console.log('─────────────────────────────────────────');
 
   } catch (err) {

@@ -1,3 +1,4 @@
+//add-resident.js
 // ═══════════════════════════════════════════════════════════════
 // INITIALIZATION
 // ═══════════════════════════════════════════════════════════════
@@ -20,7 +21,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   const logoutBtn = document.querySelector('#logout-btn');
   if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
 
-  loadDashboardData();
+  // ✅ Check for page parameter in URL (e.g., /?page=residents)
+  const urlParams = new URLSearchParams(window.location.search);
+  const pageParam = urlParams.get('page');
+  
+  // Load page: use URL param if present, otherwise default to 'dashboard'
+  const pageToLoad = pageParam || 'dashboard';
+  loadPage(pageToLoad);
+  
+  // Load dashboard data (always fetch even if viewing another page)
+  if (pageToLoad === 'dashboard') {
+    loadDashboardData();
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -290,7 +302,7 @@ function getDashboardHTML() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// DASHBOARD DATA  (real API data only — no hardcoded values)
+// DASHBOARD DATA 
 // ═══════════════════════════════════════════════════════════════
 
 async function loadDashboardData() {
@@ -417,14 +429,6 @@ async function apiCall(endpoint, options = {}) {
     return null;
   }
 }
-
-// ═══════════════════════════════════════════════════════════════
-// MODALS
-// ═══════════════════════════════════════════════════════════════
-
-function openModal(id) { document.querySelector(`#${id}`)?.classList.add('active'); }
-function closeModal(id) { document.querySelector(`#${id}`)?.classList.remove('active'); }
-document.addEventListener('click', e => { if (e.target.classList.contains('modal')) e.target.classList.remove('active'); });
 
 // ═══════════════════════════════════════════════════════════════
 // NOTIFICATIONS

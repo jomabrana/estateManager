@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EstatePro | Add Invoice</title>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <link rel="stylesheet" href="./styles/index.css">
+  <link rel="stylesheet" href="./styles/mobile.css">
+  <link rel="stylesheet" href="./styles/add-resident.css">
+  <style>
+    .charge-preview {
+      padding: 10px 14px;
+      background: var(--bg-secondary, #f8fafc);
+      border: 1px solid var(--border-color, #e2e8f0);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      color: var(--text-muted, #64748b);
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+    }
+    .resident-option-meta {
+      font-size: 0.8rem;
+      color: var(--text-muted, #94a3b8);
+      margin-left: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard-container">
+
+    <!-- SIDEBAR -->
+    <nav class="sidebar">
+      <div class="logo">
+        <i class="ph-bold ph-buildings"></i>
+        <span>EstatePro</span>
+      </div>
+      <ul class="nav-links">
+        <li><a href="#" class="nav-link" onclick="loadPage('dashboard'); return false;"><i class="ph ph-squares-four"></i><span>Dashboard</span></a></li>
+        <li><a href="#" class="nav-link" onclick="loadPage('residents'); return false;"><i class="ph ph-users"></i><span>Residents</span></a></li>
+        <li><a href="#" class="nav-link active" onclick="loadPage('invoices'); return false;"><i class="ph ph-receipt"></i><span>Invoices</span></a></li>
+        <li><a href="#" class="nav-link" onclick="loadPage('payments'); return false;"><i class="ph ph-hand-coins"></i><span>Payments</span></a></li>
+        <li><a href="#" class="nav-link" onclick="loadPage('collections'); return false;"><i class="ph ph-warning-circle"></i><span>Collections</span></a></li>
+        <li><a href="#" class="nav-link" onclick="loadPage('communications'); return false;"><i class="ph ph-chat-dots"></i><span>Communications</span></a></li>
+        <li><a href="#" class="nav-link" onclick="loadPage('reports'); return false;"><i class="ph ph-chart-line"></i><span>Reports</span></a></li>
+      </ul>
+      <div class="user-profile">
+        <div class="avatar" id="user-avatar">AO</div>
+        <div class="user-info">
+          <p class="name" id="user-name">Admin User</p>
+          <p class="role" id="user-role">Admin</p>
+        </div>
+      </div>
+    </nav>
+
+    <!-- MAIN -->
+    <main class="content">
+      <header class="top-bar">
+        <div class="header-left">
+          <h1 class="page-title" id="page-title">Create Invoice</h1>
+          <p class="page-subtitle" id="page-subtitle">Generate an invoice for a resident</p>
+        </div>
+        <div class="header-right">
+          <div class="date-time-display">
+            <i class="ph ph-calendar-blank"></i>
+            <span id="current-date-time">Loading...</span>
+          </div>
+          <button id="logout-btn" class="logout-btn" title="Logout">
+            <i class="ph ph-sign-out"></i><span>Logout</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="main-content">
+        <div class="add-resident-container">
+          <div class="form-card">
+            <div class="form-header">
+              <h2><i class="ph ph-receipt"></i> <span id="form-heading">New Invoice</span></h2>
+              <p id="form-desc">Fill in the details below to create an invoice</p>
+            </div>
+
+            <form id="invoice-form">
+
+              <!-- Resident -->
+              <div class="form-section">
+                <h3 class="form-section-title"><i class="ph ph-user"></i> Resident</h3>
+                <div class="form-group">
+                  <label for="f-resident">Resident *</label>
+                  <select id="f-resident" required onchange="onResidentChange(this)">
+                    <option value="">Loading residents...</option>
+                  </select>
+                </div>
+                <div class="form-row" id="unit-charge-row" style="display:none;">
+                  <div class="form-group">
+                    <label>Unit</label>
+                    <div class="charge-preview" id="display-unit">—</div>
+                  </div>
+                  <div class="form-group">
+                    <label>Unit Monthly Charge</label>
+                    <div class="charge-preview" id="display-charge">—</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Invoice Details -->
+              <div class="form-section">
+                <h3 class="form-section-title"><i class="ph ph-receipt"></i> Invoice Details</h3>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="f-billing-month">Billing Month *</label>
+                    <select id="f-billing-month" required>
+                      <option value="1">January</option>
+                      <option value="2">February</option>
+                      <option value="3">March</option>
+                      <option value="4">April</option>
+                      <option value="5">May</option>
+                      <option value="6">June</option>
+                      <option value="7">July</option>
+                      <option value="8">August</option>
+                      <option value="9">September</option>
+                      <option value="10">October</option>
+                      <option value="11">November</option>
+                      <option value="12">December</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="f-billing-year">Billing Year *</label>
+                    <input type="number" id="f-billing-year" min="2020" max="2099" required>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="f-amount">Amount (KES) *</label>
+                    <input type="number" id="f-amount" min="0" step="0.01" placeholder="Auto-filled from unit charge" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="f-due-date">Due Date *</label>
+                    <input type="date" id="f-due-date" required>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Notes -->
+              <div class="form-section">
+                <h3 class="form-section-title"><i class="ph ph-note"></i> Notes</h3>
+                <textarea id="f-notes" placeholder="Optional notes about this invoice..."></textarea>
+              </div>
+
+              <div class="form-error" id="form-error" style="display:none;"></div>
+
+              <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="window.history.back()">Back</button>
+                <button type="submit" class="btn btn-primary" id="submit-btn">
+                  <i class="ph ph-floppy-disk"></i> <span id="submit-label">Save Invoice</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/index.js"></script>
+  <script src="/js/add-invoice.js"></script>
+</body>
+</html>

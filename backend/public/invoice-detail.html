@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EstatePro | Invoice Detail</title>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <link rel="stylesheet" href="./styles/index.css">
+  <link rel="stylesheet" href="./styles/mobile.css">
+  <link rel="stylesheet" href="./styles/add-resident.css">
+  <link rel="stylesheet" href="./styles/invoices.css">
+  <style>
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+    @media (max-width: 768px) { .detail-grid { grid-template-columns: 1fr; } }
+    .detail-card { background: white; border: 1px solid var(--border-color,#e2e8f0); border-radius: 12px; padding: 20px 24px; box-shadow: var(--card-shadow); }
+    .detail-card h3 { font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted,#94a3b8); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .detail-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color,#f1f5f9); font-size: 0.9rem; }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-row .label { color: var(--text-muted,#64748b); }
+    .detail-row .value { font-weight: 500; text-align: right; }
+    .amount-summary { background: var(--bg-secondary,#f8fafc); border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; display: flex; gap: 24px; flex-wrap: wrap; }
+    .amount-item { flex: 1; min-width: 100px; }
+    .amount-item .amt-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .amount-item .amt-value { font-size: 1.2rem; font-weight: 700; margin-top: 4px; }
+    .amt-value.danger  { color: var(--danger,#ef4444); }
+    .amt-value.success { color: var(--success,#22c55e); }
+    .amt-value.muted   { color: var(--text-secondary,#475569); }
+    /* Monthly breakdown table */
+    .monthly-table th, .monthly-table td { font-size: 0.83rem; }
+    /* Payment modal */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal-box { background: white; border-radius: 14px; padding: 28px 32px; width: 100%; max-width: 440px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+    .modal-box h3 { margin-bottom: 20px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
+    .modal-fg { margin-bottom: 16px; }
+    .modal-fg label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+    .modal-fg input, .modal-fg select, .modal-fg textarea { width: 100%; padding: 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 14px; font-family: inherit; box-sizing: border-box; }
+    .modal-fg input:focus, .modal-fg select:focus, .modal-fg textarea:focus { outline: none; border-color: #2563eb; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  </style>
+</head>
+<body>
+<div class="dashboard-container">
+  <nav class="sidebar">
+    <div class="logo"><i class="ph-bold ph-buildings"></i><span>EstatePro</span></div>
+    <ul class="nav-links">
+      <li><a href="#" class="nav-link" onclick="loadPage('dashboard');return false;"><i class="ph ph-squares-four"></i><span>Dashboard</span></a></li>
+      <li><a href="#" class="nav-link" onclick="loadPage('residents');return false;"><i class="ph ph-users"></i><span>Residents</span></a></li>
+      <li><a href="#" class="nav-link active" onclick="loadPage('invoices');return false;"><i class="ph ph-receipt"></i><span>Invoices</span></a></li>
+      <li><a href="#" class="nav-link" onclick="loadPage('payments');return false;"><i class="ph ph-hand-coins"></i><span>Payments</span></a></li>
+      <li><a href="#" class="nav-link" onclick="loadPage('collections');return false;"><i class="ph ph-warning-circle"></i><span>Collections</span></a></li>
+      <li><a href="#" class="nav-link" onclick="loadPage('communications');return false;"><i class="ph ph-chat-dots"></i><span>Communications</span></a></li>
+      <li><a href="#" class="nav-link" onclick="loadPage('reports');return false;"><i class="ph ph-chart-line"></i><span>Reports</span></a></li>
+    </ul>
+    <div class="user-profile">
+      <div class="avatar" id="user-avatar">AO</div>
+      <div class="user-info"><p class="name" id="user-name">Admin</p><p class="role" id="user-role">Admin</p></div>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="top-bar">
+      <div class="header-left">
+        <h1 class="page-title">Invoice Detail</h1>
+        <p class="page-subtitle" id="inv-subtitle">Loading...</p>
+      </div>
+      <div class="header-right">
+        <div class="date-time-display"><i class="ph ph-calendar-blank"></i><span id="current-date-time">Loading...</span></div>
+        <button id="logout-btn" class="logout-btn"><i class="ph ph-sign-out"></i><span>Logout</span></button>
+      </div>
+    </header>
+
+    <div class="main-content">
+      <div id="inv-loading" style="padding:40px;text-align:center;color:var(--text-muted)">
+        <i class="ph ph-spinner" style="font-size:2rem;"></i><br>Loading invoice...
+      </div>
+
+      <div id="inv-content" style="display:none;">
+
+        <!-- Actions -->
+        <div class="page-actions" style="margin-bottom:20px;">
+          <button class="btn btn-primary" data-action="open-payment" onclick="openPaymentModal()">
+            <i class="ph ph-plus"></i> Record Payment
+          </button>
+          <button class="btn btn-secondary" onclick="goToEdit()">
+            <i class="ph ph-pencil-simple"></i> Edit
+          </button>
+          <button class="btn btn-secondary" onclick="window.history.back()">
+            <i class="ph ph-arrow-left"></i> Back
+          </button>
+        </div>
+
+        <!-- Amount summary -->
+        <div class="amount-summary">
+          <div class="amount-item">
+            <div class="amt-label">Invoice Amount</div>
+            <div class="amt-value muted" id="sum-amount">—</div>
+          </div>
+          <div class="amount-item">
+            <div class="amt-label">Total Paid</div>
+            <div class="amt-value success" id="sum-paid">—</div>
+          </div>
+          <div class="amount-item">
+            <div class="amt-label">Outstanding</div>
+            <div class="amt-value danger" id="sum-outstanding">—</div>
+          </div>
+          <div class="amount-item">
+            <div class="amt-label">Status</div>
+            <div id="sum-status">—</div>
+          </div>
+        </div>
+
+        <!-- Info cards -->
+        <div class="detail-grid">
+          <div class="detail-card">
+            <h3><i class="ph ph-receipt"></i> Invoice Info</h3>
+            <div class="detail-row"><span class="label">Reference</span><span class="value" id="d-ref">—</span></div>
+            <div class="detail-row"><span class="label">Period</span><span class="value" id="d-period">—</span></div>
+            <div class="detail-row"><span class="label">Invoice Date</span><span class="value" id="d-created">—</span></div>
+            <div class="detail-row"><span class="label">Due Date</span><span class="value" id="d-due">—</span></div>
+            <div class="detail-row"><span class="label">Notes</span><span class="value" id="d-notes">—</span></div>
+          </div>
+          <div class="detail-card">
+            <h3><i class="ph ph-user"></i> Resident</h3>
+            <div class="detail-row"><span class="label">Name</span><span class="value" id="d-resident">—</span></div>
+            <div class="detail-row"><span class="label">Unit</span><span class="value" id="d-unit">—</span></div>
+            <div class="detail-row"><span class="label">Emails</span><span class="value" id="d-emails">—</span></div>
+            <div class="detail-row"><span class="label">Phones</span><span class="value" id="d-phones">—</span></div>
+          </div>
+        </div>
+
+        <!-- Monthly breakdown -->
+        <div class="card" id="monthly-section" style="display:none; margin-bottom:24px;">
+          <div class="card-header">
+            <h2 class="card-title"><i class="ph ph-calendar-blank"></i> Monthly Breakdown</h2>
+            <span class="resident-count" id="monthly-count">—</span>
+          </div>
+          <div class="table-responsive">
+            <table class="monthly-table">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Base Amount</th>
+                  <th>Late Fee</th>
+                  <th>Total Due</th>
+                  <th>Paid</th>
+                  <th>Remaining</th>
+                  <th>Due Date</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="monthly-tbody">
+                <tr><td colspan="8" class="table-empty">No monthly breakdown yet</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Payments -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title"><i class="ph ph-hand-coins"></i> Payment History</h2>
+            <span class="resident-count" id="payment-count">0 payments</span>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th><th>Amount</th><th>Method</th><th>Receipt No.</th><th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="payments-tbody">
+                <tr><td colspan="5" class="table-empty">No payments recorded yet</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div><!-- end #inv-content -->
+    </div>
+  </main>
+</div>
+
+<!-- Payment Modal -->
+<div class="modal-overlay" id="payment-modal">
+  <div class="modal-box">
+    <h3><i class="ph ph-hand-coins"></i> Record Payment</h3>
+    <div class="modal-fg">
+      <label>Amount (KES) *</label>
+      <input type="number" id="pay-amount" min="0.01" step="0.01" placeholder="e.g. 15000">
+    </div>
+    <div class="modal-fg">
+      <label>Payment Method *</label>
+      <select id="pay-method">
+        <option value="M-PESA">M-PESA</option>
+        <option value="CASH">Cash</option>
+        <option value="BANK_TRANSFER">Bank Transfer</option>
+        <option value="CHEQUE">Cheque</option>
+        <option value="OTHER">Other</option>
+      </select>
+    </div>
+    <div class="modal-fg">
+      <label>Payment Date *</label>
+      <input type="date" id="pay-date">
+    </div>
+    <div class="modal-fg">
+      <label>Notes <span style="font-weight:400;color:#94a3b8;">(optional)</span></label>
+      <textarea id="pay-notes" rows="2" placeholder="e.g. M-PESA ref LKXXXX1234"></textarea>
+    </div>
+    <div class="form-error" id="pay-error" style="display:none;margin-bottom:12px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closePaymentModal()">Cancel</button>
+      <button class="btn btn-primary" id="pay-submit-btn" onclick="submitPayment()">
+        <i class="ph ph-floppy-disk"></i> Save Payment
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/index.js"></script>
+<script src="/js/invoice-detail.js"></script>
+</body>
+</html>

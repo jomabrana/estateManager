@@ -32,14 +32,36 @@ model User {
 }
 
 model Estate {
-  id             Int      @id @default(autoincrement())
-  name           String
-  location       String
-  description    String?
-  numberOfUnits  Int      @default(0)
-  users          User[]
-  units          Unit[]
-  createdAt      DateTime @default(now())
+  id                      Int      @id @default(autoincrement())
+  name                    String
+  location                String
+  description             String?
+  numberOfUnits           Int      @default(0)
+  defaultMonthlyCharge    Decimal  @default(0) @db.Decimal(10, 2)
+  
+  // ── Invoice Settings ──
+  invoiceBackdateToMoveIn Boolean  @default(true)
+  
+  // ── Late Fee Settings ──
+  lateFeeEnabled          Boolean  @default(true)
+  lateFeeKickInAfterDays  Int      @default(7)
+  lateFeeType             String   @default("PERCENTAGE")
+  lateFeeValue            Float    @default(10)
+  lateFeeCompounding      String   @default("SIMPLE")
+  lateFeeMaxCap           Float?
+  
+  // ── Communication Settings ──
+  sendRemindersBeforeDue  Boolean  @default(true)
+  communicationFrequency  String   @default("MONTHLY")
+  
+  users                   User[]
+  units                   Unit[]
+  invoices                Invoice[]
+  payments                Payment[]
+  communications          CommunicationLog[]
+  lateFees                LateFee[]
+  
+  createdAt               DateTime @default(now())
 }
 
 model Unit {
@@ -69,44 +91,185 @@ model Resident {
 }
 
 model Invoice {
-  id           Int           @id @default(autoincrement())
-  residentId   Int
-  resident     Resident      @relation(fields: [residentId], references: [id])
-  unitId       Int
-  unit         Unit          @relation(fields: [unitId], references: [id])
-  invoiceDate  DateTime      @default(now())
-  dueDate      DateTime
-  amount       Decimal       @db.Decimal(10, 2)
-  lateFee      Decimal       @default(0) @db.Decimal(10, 2)
-  status       InvoiceStatus @default(PENDING)
-  payments     Payment[]
-  referenceNo  String        @unique
-  billingMonth Int
-  billingYear  Int
-  daysOverdue  Int           @default(0)
-
+  id                    Int           @id @default(autoincrement())
+  residentId            Int
+  resident              Resident      @relation(fields: [residentId], references: [id])
+  unitId                Int
+  unit                  Unit          @relation(fields: [unitId], references: [id])
+  estateId              Int
+  estate                Estate        @relation(fields: [estateId], references: [id])
+  
+  // ── Rolling Balance ──
+  status                InvoiceStatus @default(PENDING)
+  totalOutstanding      Decimal       @default(0) @db.Decimal(10, 2)
+  totalPaid             Decimal       @default(0) @db.Decimal(10, 2)
+  
+  // ── Monthly Breakdown ──
+  monthlyCharges        InvoiceMonth[]
+  lateFees              LateFee[]
+  
+  // ── Dates & Tracking ──
+  invoiceDate           DateTime      @default(now())
+  dueDate               DateTime
+  billingMonth          Int
+  billingYear           Int
+  referenceNo           String        @unique
+  daysOverdue           Int           @default(0)
+  lastPaymentDate       DateTime?
+  
+  // ── Legacy Fields ──
+  amount                Decimal       @db.Decimal(10, 2)
+  lateFee               Decimal       @default(0) @db.Decimal(10, 2)
+  
+  payments              Payment[]
+  communications        CommunicationLog[]
+  notes                 String?
+  
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  
   @@unique([residentId, billingMonth, billingYear])
 }
 
+model InvoiceMonth {
+  id                    String   @id @default(cuid())
+  invoiceId             Int
+  month                 String   @db.Char(7)
+  dueDate               DateTime
+  
+  // ── Amounts ──
+  baseAmount            Decimal                      @db.Decimal(10, 2)
+  lateFee               Decimal  @default(0)         @db.Decimal(10, 2)
+  amountPaid            Decimal  @default(0)         @db.Decimal(10, 2)
+  amountRemaining       Decimal                      @db.Decimal(10, 2)
+  
+  // ── Status ──
+  status                String   @default("UNPAID")
+  
+  // ── Late Fee Link ──
+  lateFeeId             String?  @unique
+  lateFeeAppliedDate    DateTime?
+  lateFeeAppliedByType  String?
+  
+  // ── Tracking ──
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  // Relations
+  invoice               Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  lateFeeRecord         LateFee? @relation(fields: [lateFeeId], references: [id])
+  
+  @@index([invoiceId])
+  @@index([month])
+}
+
+model LateFee {
+  id                    String   @id @default(cuid())
+  invoiceId             Int
+  estateId              Int
+  
+  // ── Fee Details ──
+  monthAffected         String   @db.Char(7)
+  daysOverdue           Int
+  
+  // ── Calculation ──
+  baseAmount            Decimal                      @db.Decimal(10, 2)
+  feeType               String
+  feeValue              Float
+  calculatedAmount      Decimal                      @db.Decimal(10, 2)
+  
+  // ── Compounding Info ──
+  appliedToBalance      Decimal                      @db.Decimal(10, 2)
+  compoundingMethod     String
+  
+  // ── Status ──
+  status                String   @default("ACTIVE")
+  
+  // ── Tracking ──
+  appliedDate           DateTime @default(now())
+  appliedBy             String   @default("SYSTEM")
+  waiveDate             DateTime?
+  waivedReason          String?
+  
+  // Relations
+  invoice               Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  estate                Estate   @relation(fields: [estateId], references: [id])
+  invoiceMonth          InvoiceMonth?
+  
+  @@index([invoiceId])
+  @@index([monthAffected])
+}
+
 model Payment {
-  id          Int      @id @default(autoincrement())
-  invoiceId   Int
-  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
-  paymentDate DateTime @default(now())
-  amountPaid  Decimal  @db.Decimal(10, 2)
-  method      String
-  receiptNo   String   @unique
-  notes       String?
+  id                  Int      @id @default(autoincrement())
+  invoiceId           Int
+  estateId            Int
+  
+  invoice             Invoice  @relation(fields: [invoiceId], references: [id])
+  estate              Estate   @relation(fields: [estateId], references: [id])
+  
+  paymentDate         DateTime @default(now())
+  amountPaid          Decimal  @db.Decimal(10, 2)
+  method              String
+  receiptNo           String   @unique
+  notes               String?
+  
+  allocations         PaymentAllocation[]
+}
+
+model PaymentAllocation {
+  id                String   @id @default(cuid())
+  paymentId         Int
+  month             String   @db.Char(7)
+  allocatedAmount   Decimal  @db.Decimal(10, 2)
+  
+  // Relations
+  payment           Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  
+  @@index([paymentId])
+  @@index([month])
 }
 
 model CommunicationLog {
-  id         Int      @id @default(autoincrement())
-  residentId Int
-  resident   Resident @relation(fields: [residentId], references: [id])
-  sentAt     DateTime @default(now())
-  type       String
-  channel    String
-  content    String
-  sentBy     String
-  followUp   Boolean  @default(false)
+  id                      String   @id @default(cuid())
+  invoiceId               Int?
+  residentId              Int
+  estateId                Int
+  
+  resident                Resident @relation(fields: [residentId], references: [id])
+  estate                  Estate   @relation(fields: [estateId], references: [id])
+  invoice                 Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  
+  // ── Message Details ──
+  type                    String
+  channel                 String
+  subject                 String?
+  content                 String   @db.Text
+  
+  // ── Template & Variables ──
+  template                String?
+  templateVariables       Json?
+  
+  // ── Recipient ──
+  recipient               String
+  
+  // ── Status ──
+  status                  String   @default("SENT")
+  failureReason           String?
+  
+  // ── Frequency Tracking ──
+  communicationType       String?
+  lastCommunicationDate   DateTime?
+  
+  // ── Tracking ──
+  sentAt                  DateTime @default(now())
+  sentBy                  String
+  followUp                Boolean  @default(false)
+  
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  
+  @@index([residentId])
+  @@index([invoiceId])
+  @@index([status])
 }

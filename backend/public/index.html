@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EstatePro | Dashboard</title>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <link rel="stylesheet" href="./styles/index.css">
-    <link rel="stylesheet" href="./styles/mobile.css">
-    <script src="./js/index.js"></script>
+    <link rel="stylesheet" href="/styles/index.css">
+    <link rel="stylesheet" href="/styles/mobile.css">
+    <script src="/js/index.js"></script>
 </head>
 <body>
     <div class="dashboard-container">
@@ -30,7 +30,7 @@
                 </a></li>
                 <li><a href="#" class="nav-link" data-page="payments" onclick="loadPage('payments'); return false;">
                     <i class="ph ph-hand-coins"></i><span>Payments</span>
-                </a></li>
+                </a></li>               
                 <li><a href="#" class="nav-link" data-page="collections" onclick="loadPage('collections'); return false;">
                     <i class="ph ph-warning-circle"></i><span>Collections</span>
                 </a></li>
@@ -74,73 +74,10 @@
             </header>
 
             <div id="page-container" class="main-content">
-                <div id="dashboard-content">
-                    <div class="stats-grid">
-                        <div class="card stat-card">
-                            <div class="icon-bg blue"><i class="ph ph-money"></i></div>
-                            <div>
-                                <p class="stat-label">Total Collected</p>
-                                <h2 class="stat-value" id="total-collected">KES 0</h2>
-                            </div>
-                        </div>
-                        <div class="card stat-card">
-                            <div class="icon-bg red"><i class="ph ph-warning-circle"></i></div>
-                            <div>
-                                <p class="stat-label">Total Overdue</p>
-                                <h2 class="stat-value" id="total-overdue">KES 0</h2>
-                            </div>
-                        </div>
-                        <div class="card stat-card">
-                            <div class="icon-bg green"><i class="ph ph-house"></i></div>
-                            <div>
-                                <p class="stat-label">Units</p>
-                                <h2 class="stat-value" id="total-units">0</h2>
-                            </div>
-                        </div>
-                        <div class="card stat-card">
-                            <div class="icon-bg orange"><i class="ph ph-users"></i></div>
-                            <div>
-                                <p class="stat-label">Residents</p>
-                                <h2 class="stat-value" id="total-residents">0</h2>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="quick-actions">
-                        <h3>Quick Navigation</h3>
-                        <div class="action-buttons">
-                            <button class="btn btn-primary" onclick="loadPage('residents')"><i class="ph ph-user-plus"></i> Manage Residents</button>
-                            <button class="btn btn-primary" onclick="loadPage('invoices')"><i class="ph ph-stack"></i> Generate Invoice</button>
-                            <button class="btn btn-primary" onclick="loadPage('payments')"><i class="ph ph-currency-circle-dollar"></i> Record Payment</button>
-                            <button class="btn btn-primary" onclick="loadPage('collections')"><i class="ph ph-warning-circle"></i> View Overdue</button>
-                            <button class="btn btn-secondary" onclick="loadPage('reports')"><i class="ph ph-export"></i> Export Report</button>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div class="card-header">
-                            <h2 class="card-title">Recent Payments</h2>
-                            <a href="#" onclick="loadPage('payments'); return false;" style="color:var(--primary);text-decoration:none;font-weight:600;">View All</a>
-                        </div>
-                        <div class="table-responsive">
-                            <table>
-                                <thead><tr><th>Resident</th><th>Unit</th><th>Amount</th><th>Method</th><th>Date</th><th>Status</th></tr></thead>
-                                <tbody id="payments-tbody"><tr><td colspan="6" style="text-align:center;padding:40px;">Loading...</td></tr></tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div class="card-header">
-                            <h2 class="card-title">Overdue Balances</h2>
-                            <a href="#" onclick="loadPage('collections'); return false;" style="color:var(--primary);text-decoration:none;font-weight:600;">View All</a>
-                        </div>
-                        <div class="table-responsive">
-                            <table>
-                                <thead><tr><th>Resident</th><th>Unit</th><th>Overdue Amount</th><th>Days Overdue</th><th>Status</th></tr></thead>
-                                <tbody id="overdue-tbody"><tr><td colspan="5" style="text-align:center;padding:40px;">Loading...</td></tr></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
+                <!-- Dashboard content will load here -->
             </div>
+
+
         </main>
     </div>
 
@@ -152,11 +89,12 @@
         <button class="bottom-nav-item" data-page="residents" onclick="loadPage('residents')">
             <i class="ph ph-users"></i><span>Residents</span>
         </button>
-        <button class="bottom-nav-item" data-page="invoices" onclick="loadPage('invoices')">
-            <i class="ph ph-receipt"></i><span>Invoices</span>
-        </button>
+        
         <button class="bottom-nav-item" data-page="payments" onclick="loadPage('payments')">
             <i class="ph ph-hand-coins"></i><span>Payments</span>
+        </button>
+        <button class="bottom-nav-item" data-page="invoices" onclick="loadPage('invoices')">
+            <i class="ph ph-receipt"></i><span>Invoices</span>
         </button>
         <button class="bottom-nav-item" data-page="collections" onclick="loadPage('collections')">
             <i class="ph ph-warning-circle"></i><span>Collections</span>

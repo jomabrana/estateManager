@@ -11,11 +11,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Routes
 app.use('/api/auth', authRoutes);
-app.use('/api', resourceRoutes);              // <-- was missing
+app.use('/api', resourceRoutes);             
 
+// Static files
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Health checks
 app.get('/health', (req, res) => {
   res.json({ status: 'active', message: 'Service Charge API is healthy and running' });
 });
@@ -29,9 +32,12 @@ app.get('/dbstatus', async (req, res) => {
   }
 });
 
-// SPA fallback — must be last
-app.get('/{*path}', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public', 'index.html'));
+// ✅ SPA FALLBACK - Use middleware, NOT app.get('*')
+app.use((req, res) => {
+  if (!req.url.startsWith('/api')) {
+    return res.sendFile(path.join(__dirname, '../public/index.html'));
+  }
+  res.status(404).json({ error: 'Not found' });
 });
 
 const PORT = process.env.PORT || 5000;

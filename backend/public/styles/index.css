@@ -89,12 +89,6 @@ html, body { height: 100%; }
 /* SIDEBAR */
 /* ═══════════════════════════════════════════════════════════════ */
 
-/* ═══════════════════════════════════════════════════════════════
-   PERFECT SIDEBAR ALIGNMENT - Replace in index.css
-   Desktop: Icons and text perfectly aligned on sidebar
-   ═══════════════════════════════════════════════════════════════ */
-
-/* SIDEBAR CONTAINER */
 .sidebar {
     width: 260px;
     background-color: #1e293b;
@@ -111,7 +105,6 @@ html, body { height: 100%; }
     z-index: 1000;
 }
 
-/* LOGO - Perfectly centered */
 .logo {
     display: flex;
     align-items: center;
@@ -135,7 +128,6 @@ html, body { height: 100%; }
     white-space: nowrap;
 }
 
-/* NAV LINKS CONTAINER */
 .nav-links {
     list-style: none;
     flex-grow: 1;
@@ -150,7 +142,6 @@ html, body { height: 100%; }
     padding: 0 12px;
 }
 
-/* NAV LINK ITEM - Perfect alignment */
 .nav-link {
     display: flex;
     align-items: center;
@@ -193,7 +184,6 @@ html, body { height: 100%; }
     border-left-color: #60a5fa;
 }
 
-/* USER PROFILE SECTION */
 .user-profile {
     display: flex;
     align-items: center;
@@ -558,35 +548,6 @@ tbody tr:hover { background-color: var(--body-bg); }
 
 .form-group textarea { resize: vertical; min-height: 100px; }
 .form-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
-
-/* ═══════════════════════════════════════════════════════════════ */
-/* MODALS */
-/* ═══════════════════════════════════════════════════════════════ */
-
-.modal {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 1500;
-    align-items: center;
-    justify-content: center;
-    animation: fadeIn 0.2s ease;
-}
-
-.modal.active { display: flex; }
-
-.modal-content {
-    background: white;
-    padding: 32px;
-    border-radius: 12px;
-    max-width: 500px;
-    width: 90%;
-    box-shadow: var(--card-shadow-lg);
-    animation: slideUp 0.3s ease;
-}
-
-.modal-header { font-size: 1.25rem; font-weight: 700; margin-bottom: 24px; color: var(--text-main); }
 
 /* ═══════════════════════════════════════════════════════════════ */
 /* ACTION ICONS */

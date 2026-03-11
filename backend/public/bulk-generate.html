@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EstatePro | Bulk Generate Invoices</title>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <link rel="stylesheet" href="./styles/index.css">
+  <link rel="stylesheet" href="./styles/mobile.css">
+  <link rel="stylesheet" href="./styles/add-resident.css">
+  <link rel="stylesheet" href="./styles/invoices.css">
+  <style>
+    .generate-card { max-width: 780px; }
+    .month-selector { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 24px; }
+    .month-selector .form-group { margin-bottom: 0; flex: 1; min-width: 140px; }
+    .preview-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .preview-header h3 { font-size: 1rem; font-weight: 600; }
+    .preview-stats { display: flex; gap: 16px; font-size: 0.85rem; }
+    .stat-pill { padding: 4px 12px; border-radius: 20px; font-weight: 600; }
+    .stat-pill.green  { background: #dcfce7; color: #16a34a; }
+    .stat-pill.yellow { background: #fef9c3; color: #ca8a04; }
+    .result-banner { padding: 16px 20px; border-radius: 10px; margin-bottom: 20px; display: none; }
+    .result-banner.success { background: #dcfce7; border: 1px solid #86efac; color: #15803d; }
+    .result-banner.error   { background: #fef2f2; border: 1px solid #fca5a5; color: #dc2626; }
+    .resident-preview-row td { font-size: 0.85rem; }
+    .skip-badge { background: #fef9c3; color: #92400e; border-radius: 12px; padding: 2px 8px; font-size: 0.75rem; font-weight: 600; }
+  </style>
+</head>
+<body>
+<div class="dashboard-container">
+  <nav class="sidebar">
+    <div class="logo"><i class="ph-bold ph-buildings"></i><span>EstatePro</span></div>
+    <ul class="nav-links">
+      <li><a href="#" class="nav-link" onclick="loadPage('dashboard');return false;"><i class="ph ph-squares-four"></i><span>Dashboard</span></a></li>
+      <li><a href="#" class="nav-link" onclick="loadPage('residents');return false;"><i class="ph ph-users"></i><span>Residents</span></a></li>
+      <li><a href="#" class="nav-link active" onclick="loadPage('invoices');return false;"><i class="ph ph-receipt"></i><span>Invoices</span></a></li>
+      <li><a href="#" class="nav-link" onclick="loadPage('payments');return false;"><i class="ph ph-hand-coins"></i><span>Payments</span></a></li>
+      <li><a href="#" class="nav-link" onclick="loadPage('collections');return false;"><i class="ph ph-warning-circle"></i><span>Collections</span></a></li>
+      <li><a href="#" class="nav-link" onclick="loadPage('communications');return false;"><i class="ph ph-chat-dots"></i><span>Communications</span></a></li>
+      <li><a href="#" class="nav-link" onclick="loadPage('reports');return false;"><i class="ph ph-chart-line"></i><span>Reports</span></a></li>
+    </ul>
+    <div class="user-profile">
+      <div class="avatar" id="user-avatar">AO</div>
+      <div class="user-info"><p class="name" id="user-name">Admin</p><p class="role" id="user-role">Admin</p></div>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="top-bar">
+      <div class="header-left">
+        <h1 class="page-title">Bulk Generate Invoices</h1>
+        <p class="page-subtitle">Preview and generate monthly invoices for all active residents</p>
+      </div>
+      <div class="header-right">
+        <div class="date-time-display"><i class="ph ph-calendar-blank"></i><span id="current-date-time">Loading...</span></div>
+        <button id="logout-btn" class="logout-btn"><i class="ph ph-sign-out"></i><span>Logout</span></button>
+      </div>
+    </header>
+
+    <div class="main-content">
+      <div class="add-resident-container">
+        <div class="form-card generate-card">
+
+          <div class="form-header">
+            <h2><i class="ph ph-stack"></i> Generate Monthly Invoices</h2>
+            <p>Select a billing month, preview which residents will be invoiced, then confirm.</p>
+          </div>
+
+          <!-- Result banner (shown after generation) -->
+          <div class="result-banner" id="result-banner"></div>
+
+          <!-- Month selector + Preview button -->
+          <div class="month-selector">
+            <div class="form-group">
+              <label for="sel-month">Billing Month *</label>
+              <select id="sel-month">
+                <option value="1">January</option><option value="2">February</option>
+                <option value="3">March</option><option value="4">April</option>
+                <option value="5">May</option><option value="6">June</option>
+                <option value="7">July</option><option value="8">August</option>
+                <option value="9">September</option><option value="10">October</option>
+                <option value="11">November</option><option value="12">December</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="sel-year">Billing Year *</label>
+              <input type="number" id="sel-year" min="2020" max="2099" value="">
+            </div>
+            <div class="form-group" style="flex:0;">
+              <label>&nbsp;</label>
+              <button class="btn btn-secondary" onclick="loadPreview()" id="preview-btn">
+                <i class="ph ph-magnifying-glass"></i> Preview
+              </button>
+            </div>
+          </div>
+
+          <!-- Preview table (hidden until Preview clicked) -->
+          <div id="preview-section" style="display:none;">
+            <div class="preview-header">
+              <h3>Preview</h3>
+              <div class="preview-stats">
+                <span class="stat-pill green" id="stat-will-create">0 will be created</span>
+                <span class="stat-pill yellow" id="stat-will-skip">0 already exist</span>
+              </div>
+            </div>
+
+            <div class="table-responsive" style="margin-bottom:20px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Resident</th>
+                    <th>Unit</th>
+                    <th>Monthly Charge</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="preview-tbody"></tbody>
+              </table>
+            </div>
+
+            <div class="form-actions">
+              <button class="btn btn-secondary" onclick="window.history.back()">Cancel</button>
+              <button class="btn btn-primary" id="generate-btn" onclick="confirmGenerate()">
+                <i class="ph ph-lightning"></i> Generate Invoices
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="/js/index.js"></script>
+<script src="/js/bulk-generate.js"></script>
+</body>
+</html>

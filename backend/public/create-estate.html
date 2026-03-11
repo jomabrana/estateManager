@@ -11,12 +11,38 @@
     .form-group { margin-bottom: 20px; }
     .form-group label { display: block; font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 6px; }
     .form-group input,
-    .form-group textarea { width: 100%; padding: 11px 14px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 15px; color: #0f172a; background: #f8fafc; box-sizing: border-box; transition: border-color 0.2s; }
+    .form-group textarea {
+      width: 100%; padding: 11px 14px; border: 1.5px solid #e2e8f0;
+      border-radius: 8px; font-size: 15px; color: #0f172a; background: #f8fafc;
+      box-sizing: border-box; transition: border-color 0.2s;
+    }
     .form-group input:focus,
     .form-group textarea:focus { outline: none; border-color: #2563eb; background: white; }
+    .form-group input:disabled { opacity: 0.45; cursor: not-allowed; }
     .form-group textarea { resize: vertical; min-height: 80px; font-family: inherit; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .btn-submit { width: 100%; padding: 13px; background: #2563eb; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; transition: background 0.2s; }
+    .field-hint {
+      font-size: 12px; font-weight: 400; color: #94a3b8; margin-left: 4px;
+    }
+    /* Charge field reveal animation */
+    #charge-group {
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 0.3s ease, opacity 0.3s ease, margin-bottom 0.3s ease;
+      margin-bottom: 0;
+    }
+    #charge-group.visible {
+      max-height: 100px;
+      opacity: 1;
+      margin-bottom: 20px;
+    }
+    .btn-submit {
+      width: 100%; padding: 13px; background: #2563eb; color: white;
+      border: none; border-radius: 8px; font-size: 15px; font-weight: 600;
+      cursor: pointer; margin-top: 8px; transition: background 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
     .btn-submit:hover { background: #1d4ed8; }
     .btn-submit:disabled { background: #93c5fd; cursor: not-allowed; }
     .error-msg { color: #ef4444; font-size: 14px; margin-top: 12px; display: none; }
@@ -34,7 +60,7 @@
         <span>EstatePro</span>
       </div>
       <h1 style="font-size:22px;font-weight:700;color:#0f172a;margin-bottom:8px;">Create Your Estate</h1>
-      <p class="page-desc">Set up your estate profile. You can always update these details later from the Estate Settings page.</p>
+      <p class="page-desc">Set up your estate profile. Units will be created automatically based on the number you enter below.</p>
 
       <div class="form-group">
         <label for="name">Estate Name *</label>
@@ -49,7 +75,15 @@
       <div class="form-row">
         <div class="form-group">
           <label for="numberOfUnits">Number of Units</label>
-          <input type="number" id="numberOfUnits" placeholder="e.g. 50" min="0">
+          <input type="number" id="numberOfUnits" placeholder="e.g. 50" min="0" oninput="onUnitCountChange(this.value)">
+        </div>
+        <!-- Charge field — hidden until numberOfUnits > 0 -->
+        <div class="form-group" id="charge-group">
+          <label for="defaultMonthlyCharge">
+            Default Charge (KES) *
+            <span class="field-hint">applied to all units</span>
+          </label>
+          <input type="number" id="defaultMonthlyCharge" placeholder="e.g. 15000" min="0">
         </div>
       </div>
 
@@ -81,46 +115,74 @@
         const res = await fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error();
         const { user } = await res.json();
-        if (user.estateId) window.location.href = '/'; // already set up
+        if (user.estateId) window.location.href = '/';
       } catch {
         localStorage.removeItem('token');
         window.location.href = '/login.html';
       }
     })();
 
+    // Show / hide the default charge field based on unit count
+    function onUnitCountChange(value) {
+      const chargeGroup = document.getElementById('charge-group');
+      const chargeInput = document.getElementById('defaultMonthlyCharge');
+      const hasUnits    = parseInt(value) > 0;
+
+      if (hasUnits) {
+        chargeGroup.classList.add('visible');
+        chargeInput.required = true;
+      } else {
+        chargeGroup.classList.remove('visible');
+        chargeInput.required = false;
+        chargeInput.value    = '';
+      }
+    }
+
     async function handleCreate() {
-      const btn = document.getElementById('submit-btn');
+      const btn   = document.getElementById('submit-btn');
       const errEl = document.getElementById('error-msg');
       errEl.style.display = 'none';
 
-      const name = document.getElementById('name').value.trim();
-      const location = document.getElementById('location').value.trim();
-      const numberOfUnits = document.getElementById('numberOfUnits').value;
-      const description = document.getElementById('description').value.trim();
+      const name               = document.getElementById('name').value.trim();
+      const location           = document.getElementById('location').value.trim();
+      const numberOfUnits      = document.getElementById('numberOfUnits').value;
+      const defaultMonthlyCharge = document.getElementById('defaultMonthlyCharge').value;
+      const description        = document.getElementById('description').value.trim();
 
+      const unitCount = numberOfUnits ? parseInt(numberOfUnits) : 0;
+
+      // Validation
       if (!name || !location) {
-        errEl.textContent = 'Estate name and location are required.';
-        errEl.style.display = 'block';
+        showError('Estate name and location are required.');
+        return;
+      }
+      if (unitCount > 0 && (!defaultMonthlyCharge || parseFloat(defaultMonthlyCharge) <= 0)) {
+        showError('Please enter a default monthly charge for the units.');
         return;
       }
 
-      btn.disabled = true;
-      btn.textContent = 'Creating...';
+      btn.disabled   = true;
+      btn.innerHTML  = '<i class="ph ph-spinner"></i> Creating...';
 
       try {
         const token = localStorage.getItem('token');
         const res = await fetch('/api/estates', {
-          method: 'POST',
+          method:  'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ name, location, numberOfUnits: numberOfUnits ? parseInt(numberOfUnits) : 0, description })
+          body:    JSON.stringify({
+            name,
+            location,
+            numberOfUnits:       unitCount,
+            defaultMonthlyCharge: unitCount > 0 ? parseFloat(defaultMonthlyCharge) : 0,
+            description
+          })
         });
 
         const data = await res.json();
 
         if (!res.ok) {
-          errEl.textContent = data.error || 'Failed to create estate.';
-          errEl.style.display = 'block';
-          btn.disabled = false;
+          showError(data.error || 'Failed to create estate.');
+          btn.disabled  = false;
           btn.innerHTML = '<i class="ph ph-plus"></i> Create Estate';
           return;
         }
@@ -129,11 +191,16 @@
         window.location.href = '/';
 
       } catch (err) {
-        errEl.textContent = 'Network error. Please try again.';
-        errEl.style.display = 'block';
-        btn.disabled = false;
+        showError('Network error. Please try again.');
+        btn.disabled  = false;
         btn.innerHTML = '<i class="ph ph-plus"></i> Create Estate';
       }
+    }
+
+    function showError(msg) {
+      const errEl = document.getElementById('error-msg');
+      errEl.textContent   = msg;
+      errEl.style.display = 'block';
     }
 
     function handleLogout() {
@@ -141,7 +208,6 @@
       window.location.href = '/login.html';
     }
 
-    // Allow Enter key to submit
     document.addEventListener('keydown', e => { if (e.key === 'Enter') handleCreate(); });
   </script>
 </body>

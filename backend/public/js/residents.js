@@ -1,9 +1,8 @@
-// public/js/residents.js
+// residents.js - Handles resident listing, searching, and management on the Residents page
 
 let allResidents = [];
 let allUnits     = [];
 let estateMax    = 0;
-let editingResidentId = null;
 
 // ── INIT ──────────────────────────────────────────────────────
 
@@ -31,7 +30,7 @@ async function fetchResidents() {
     allUnits     = unitsData.units     || [];
     estateMax    = unitsData.estateNumberOfUnits || 0;
 
-    renderResidents(allResidents);
+    renderResidents(allResidents, allUnits);
     updateCounters(allResidents, allUnits, estateMax);
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="8" class="table-loading" style="color:var(--danger)">${err.message}</td></tr>`;
@@ -44,22 +43,20 @@ function updateCounters(residents, units, estateMax) {
   const active   = residents.filter(r => r.isActive !== false).length;
   const inactive = residents.filter(r => r.isActive === false).length;
 
-  // Vacant = units that have no active residents
   const occupiedUnitIds = new Set(
     residents.filter(r => r.isActive !== false).map(r => r.unit?.id).filter(Boolean)
   );
   const vacant = units.filter(u => !occupiedUnitIds.has(u.id)).length;
 
-  const unitEl    = document.getElementById('counter-units');
-  const unitOfEl  = document.getElementById('counter-units-of');
-  const activeEl  = document.getElementById('counter-residents');
-  const inactiveEl= document.getElementById('counter-inactive');
-  const vacantEl  = document.getElementById('counter-vacant');
+  const unitEl     = document.getElementById('counter-units');
+  const unitOfEl   = document.getElementById('counter-units-of');
+  const activeEl   = document.getElementById('counter-residents');
+  const inactiveEl = document.getElementById('counter-inactive');
+  const vacantEl   = document.getElementById('counter-vacant');
 
   if (unitEl)     unitEl.textContent     = units.length;
   if (unitOfEl) {
     unitOfEl.textContent = estateMax > 0 ? ` / ${estateMax}` : '';
-    // Highlight if over planned capacity
     if (unitOfEl.parentElement) {
       unitOfEl.parentElement.style.color = (units.length > estateMax && estateMax > 0) ? 'var(--warning)' : '';
     }
@@ -71,13 +68,22 @@ function updateCounters(residents, units, estateMax) {
 
 // ── RENDER ────────────────────────────────────────────────────
 
-function renderResidents(list) {
-  const tbody = document.getElementById('residents-tbody');
+function renderResidents(list, units) {
+  const tbody   = document.getElementById('residents-tbody');
   const countEl = document.getElementById('resident-count');
 
-  if (countEl) countEl.textContent = `${list.length} resident${list.length !== 1 ? 's' : ''}`;
+  // Build set of unit IDs that have at least one active resident
+  const occupiedUnitIds = new Set(
+    list.filter(r => r.isActive !== false).map(r => r.unit?.id).filter(Boolean)
+  );
 
-  if (!list.length) {
+  // Vacant units = units with no active resident
+  const vacantUnits = (units || allUnits).filter(u => !occupiedUnitIds.has(u.id));
+
+  const totalRows = list.length + vacantUnits.length;
+  if (countEl) countEl.textContent = `${list.length} resident${list.length !== 1 ? 's' : ''}, ${vacantUnits.length} vacant`;
+
+  if (totalRows === 0) {
     tbody.innerHTML = `
       <tr><td colspan="8" class="table-empty">
         <div class="empty-state">
@@ -89,11 +95,12 @@ function renderResidents(list) {
     return;
   }
 
-  tbody.innerHTML = list.map(r => {
-    const emails = (r.emails || []).join(', ') || '—';
-    const phones = (r.phones || []).join(', ') || '—';
-    const charge = new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', minimumFractionDigits: 0 }).format(r.unit?.monthlyCharge || 0);
-    const typeBadge = typeLabel(r.type);
+  // Resident rows
+  const residentRows = list.map(r => {
+    const emails      = (r.emails || []).join(', ') || '—';
+    const phones      = (r.phones || []).join(', ') || '—';
+    const charge      = formatKES(r.unit?.monthlyCharge || 0);
+    const typeBadge   = typeLabel(r.type);
     const statusBadge = r.isActive
       ? '<span class="badge badge-success">Active</span>'
       : '<span class="badge badge-warning">Inactive</span>';
@@ -109,14 +116,51 @@ function renderResidents(list) {
         <td>${statusBadge}</td>
         <td>
           <div class="action-icons">
-            <button title="Edit" onclick="openEditModal(${r.id})"><i class="ph ph-pencil-simple"></i></button>
-            <button title="Delete" class="delete" onclick="openDeleteModal(${r.id}, '${r.fullName.replace(/'/g, "\\'")}', '${r.unit?.unitNumber || ''}')">
+            <button title="Edit" onclick="editResident(${r.id})"><i class="ph ph-pencil-simple"></i></button>
+            <button title="Delete" class="delete" onclick="deleteResident(${r.id}, '${r.fullName.replace(/'/g, "\\'")}')">
               <i class="ph ph-trash"></i>
             </button>
           </div>
         </td>
       </tr>`;
-  }).join('');
+  });
+
+  // Vacant unit rows — clickable, navigates to add-resident with prefilled unit
+  const vacantRows = vacantUnits.map(u => {
+    const charge = formatKES(u.monthlyCharge || 0);
+    const params = new URLSearchParams({
+      unitId:     u.id,
+      unitNumber: u.unitNumber,
+      charge:     u.monthlyCharge || 0
+    });
+    const href = `/add-resident.html?${params.toString()}`;
+
+    return `
+      <tr class="vacant-row" onclick="window.location.href='${href}'" title="Click to assign a resident to this unit" style="cursor:pointer;">
+        <td><span class="unit-chip unit-chip-vacant">${u.unitNumber}</span></td>
+        <td><span class="vacant-label"><i class="ph ph-house-line"></i> Vacant</span></td>
+        <td>—</td>
+        <td class="contact-cell">—</td>
+        <td class="contact-cell">—</td>
+        <td>${charge}</td>
+        <td><span class="badge badge-vacant">Vacant</span></td>
+        <td>
+          <div class="action-icons">
+            <button title="Assign resident" onclick="event.stopPropagation(); window.location.href='${href}'">
+              <i class="ph ph-user-plus"></i>
+            </button>
+          </div>
+        </td>
+      </tr>`;
+  });
+
+  tbody.innerHTML = [...residentRows, ...vacantRows].join('');
+}
+
+function formatKES(amount) {
+  return new Intl.NumberFormat('en-KE', {
+    style: 'currency', currency: 'KES', minimumFractionDigits: 0
+  }).format(amount);
 }
 
 function typeLabel(type) {
@@ -132,196 +176,139 @@ function typeLabel(type) {
 // ── SEARCH / FILTER ───────────────────────────────────────────
 
 function filterResidents(query) {
-  const q = query.toLowerCase();
-  const filtered = allResidents.filter(r =>
+  const q = query.toLowerCase().trim();
+
+  if (!q) {
+    // Show everything including vacant rows
+    renderResidents(allResidents, allUnits);
+    return;
+  }
+
+  const filteredResidents = allResidents.filter(r =>
     r.fullName.toLowerCase().includes(q) ||
     (r.unit?.unitNumber || '').toLowerCase().includes(q) ||
     (r.emails || []).some(e => e.toLowerCase().includes(q)) ||
     (r.phones || []).some(p => p.includes(q))
   );
-  renderResidents(filtered);
+
+  // Also filter vacant units by unit number
+  const occupiedUnitIds = new Set(
+    allResidents.filter(r => r.isActive !== false).map(r => r.unit?.id).filter(Boolean)
+  );
+  const filteredVacant = allUnits
+    .filter(u => !occupiedUnitIds.has(u.id))
+    .filter(u => u.unitNumber.toLowerCase().includes(q));
+
+  // Render with filtered vacant units passed explicitly
+  // Temporarily override allUnits scope for this render call
+  renderResidentsWithVacant(filteredResidents, filteredVacant);
 }
 
-// ── ADD MODAL ─────────────────────────────────────────────────
+// Render helper that accepts an explicit vacant list (used by filter)
+function renderResidentsWithVacant(residents, vacantUnits) {
+  const tbody   = document.getElementById('residents-tbody');
+  const countEl = document.getElementById('resident-count');
 
-function openAddModal() {
-  editingResidentId = null;
-  document.getElementById('modal-title').textContent = 'Add Resident';
-  document.getElementById('modal-save-btn').innerHTML = '<i class="ph ph-floppy-disk"></i> Save Resident';
-  clearForm();
-  addEmailField('');
-  addPhoneField('');
-  document.getElementById('resident-modal').classList.add('active');
-}
+  const totalRows = residents.length + vacantUnits.length;
+  if (countEl) countEl.textContent = `${residents.length} resident${residents.length !== 1 ? 's' : ''}, ${vacantUnits.length} vacant`;
 
-// ── EDIT MODAL ────────────────────────────────────────────────
-
-async function openEditModal(residentId) {
-  const token = localStorage.getItem('token');
-  editingResidentId = residentId;
-
-  document.getElementById('modal-title').textContent = 'Edit Resident';
-  document.getElementById('modal-save-btn').innerHTML = '<i class="ph ph-floppy-disk"></i> Update Resident';
-  clearForm();
-  document.getElementById('resident-modal').classList.add('active');
-
-  try {
-    const res = await fetch(`/api/tenants/${residentId}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-
-    const r = data.tenant;
-
-    document.getElementById('f-unit-number').value    = r.unit?.unitNumber || '';
-    document.getElementById('f-monthly-charge').value = r.unit?.monthlyCharge || '';
-    document.getElementById('f-full-name').value       = r.fullName || '';
-    document.getElementById('f-type').value            = r.type || 'OWNER_OCCUPIER';
-    document.getElementById('f-move-in').value         = r.moveInDate ? r.moveInDate.split('T')[0] : '';
-    document.getElementById('f-is-active').value       = String(r.isActive);
-    document.getElementById('f-notes').value           = r.notes || '';
-
-    // Populate dynamic fields
-    (r.emails?.length ? r.emails : ['']).forEach(e => addEmailField(e));
-    (r.phones?.length ? r.phones : ['']).forEach(p => addPhoneField(p));
-
-  } catch (err) {
-    showError('modal-error', 'Failed to load resident: ' + err.message);
-  }
-}
-
-function closeResidentModal() {
-  document.getElementById('resident-modal').classList.remove('active');
-  clearForm();
-}
-
-// ── SAVE ──────────────────────────────────────────────────────
-
-async function saveResident() {
-  const token = localStorage.getItem('token');
-  const btn   = document.getElementById('modal-save-btn');
-
-  hideError('modal-error');
-
-  const unitNumber    = document.getElementById('f-unit-number').value.trim();
-  const monthlyCharge = document.getElementById('f-monthly-charge').value;
-  const fullName      = document.getElementById('f-full-name').value.trim();
-  const type          = document.getElementById('f-type').value;
-  const moveInDate    = document.getElementById('f-move-in').value;
-  const isActive      = document.getElementById('f-is-active').value === 'true';
-  const notes         = document.getElementById('f-notes').value.trim();
-
-  const emails = [...document.querySelectorAll('.email-input')].map(i => i.value.trim()).filter(Boolean);
-  const phones = [...document.querySelectorAll('.phone-input')].map(i => i.value.trim()).filter(Boolean);
-
-  if (!unitNumber || !monthlyCharge || !fullName || !type || !moveInDate) {
-    showError('modal-error', 'Unit number, monthly charge, full name, type and move-in date are required.');
+  if (totalRows === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="table-empty"><div class="empty-state"><div class="empty-state-icon"><i class="ph ph-magnifying-glass"></i></div><div class="empty-state-title">No results found</div></div></td></tr>`;
     return;
   }
 
-  btn.disabled = true;
-  btn.innerHTML = '<i class="ph ph-spinner"></i> Saving...';
+  const residentRows = residents.map(r => {
+    const emails      = (r.emails || []).join(', ') || '—';
+    const phones      = (r.phones || []).join(', ') || '—';
+    const charge      = formatKES(r.unit?.monthlyCharge || 0);
+    const typeBadge   = typeLabel(r.type);
+    const statusBadge = r.isActive
+      ? '<span class="badge badge-success">Active</span>'
+      : '<span class="badge badge-warning">Inactive</span>';
+    return `
+      <tr>
+        <td><span class="unit-chip">${r.unit?.unitNumber || '—'}</span></td>
+        <td><strong>${r.fullName}</strong></td>
+        <td>${typeBadge}</td>
+        <td class="contact-cell">${emails}</td>
+        <td class="contact-cell">${phones}</td>
+        <td>${charge}</td>
+        <td>${statusBadge}</td>
+        <td>
+          <div class="action-icons">
+            <button title="Edit" onclick="editResident(${r.id})"><i class="ph ph-pencil-simple"></i></button>
+            <button title="Delete" class="delete" onclick="deleteResident(${r.id}, '${r.fullName.replace(/'/g, "\\'")}')">
+              <i class="ph ph-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>`;
+  });
 
-  try {
-    const isEdit = editingResidentId !== null;
-    const url    = isEdit ? `/api/tenants/${editingResidentId}` : '/api/tenants';
-    const method = isEdit ? 'PUT' : 'POST';
+  const vacantRows = vacantUnits.map(u => {
+    const charge = formatKES(u.monthlyCharge || 0);
+    const params = new URLSearchParams({ unitId: u.id, unitNumber: u.unitNumber, charge: u.monthlyCharge || 0 });
+    const href   = `/add-resident.html?${params.toString()}`;
+    return `
+      <tr class="vacant-row" onclick="window.location.href='${href}'" title="Click to assign a resident to this unit" style="cursor:pointer;">
+        <td><span class="unit-chip unit-chip-vacant">${u.unitNumber}</span></td>
+        <td><span class="vacant-label"><i class="ph ph-house-line"></i> Vacant</span></td>
+        <td>—</td>
+        <td class="contact-cell">—</td>
+        <td class="contact-cell">—</td>
+        <td>${charge}</td>
+        <td><span class="badge badge-vacant">Vacant</span></td>
+        <td>
+          <div class="action-icons">
+            <button title="Assign resident" onclick="event.stopPropagation(); window.location.href='${href}'">
+              <i class="ph ph-user-plus"></i>
+            </button>
+          </div>
+        </td>
+      </tr>`;
+  });
 
-    const body = { unitNumber, monthlyCharge: parseFloat(monthlyCharge), fullName, emails, phones, type, moveInDate, notes, isActive };
-
-    const res  = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(body)
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to save');
-
-    closeResidentModal();
-    await fetchResidents();
-    if (typeof showNotification === 'function')
-      showNotification(isEdit ? 'Resident updated' : 'Resident added', 'success');
-
-  } catch (err) {
-    showError('modal-error', err.message);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="ph ph-floppy-disk"></i> ' + (editingResidentId ? 'Update Resident' : 'Save Resident');
-  }
+  tbody.innerHTML = [...residentRows, ...vacantRows].join('');
 }
 
-// ── DELETE ────────────────────────────────────────────────────
+// ── EDIT RESIDENT ─────────────────────────────────────────────
 
-let deletingResidentId = null;
-
-function openDeleteModal(id, name, unitNumber) {
-  deletingResidentId = id;
-  document.getElementById('delete-resident-name').textContent = name;
-  document.getElementById('delete-unit-label').textContent    = unitNumber;
-  document.getElementById('delete-unit-checkbox').checked     = false;
-  document.getElementById('delete-resident-modal').classList.add('active');
+function editResident(id) {
+  window.location.href = `/edit-tenant.html?residentId=${id}`;
 }
 
-async function confirmDeleteResident() {
-  const token       = localStorage.getItem('token');
-  const deleteUnit  = document.getElementById('delete-unit-checkbox').checked;
+// ── DELETE RESIDENT ───────────────────────────────────────────
+
+async function deleteResident(id, name) {
+  if (!confirm(`Delete resident "${name}"? This action cannot be undone.`)) return;
+
+  const token = localStorage.getItem('token');
 
   try {
-    const res = await fetch(`/api/tenants/${deletingResidentId}?deleteUnit=${deleteUnit}`, {
+    const res  = await fetch(`/api/tenants/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` }
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to delete');
 
-    closeModal('delete-resident-modal');
+    showNotification('Resident deleted', 'success');
     await fetchResidents();
-    if (typeof showNotification === 'function')
-      showNotification('Resident deleted', 'success');
   } catch (err) {
-    if (typeof showNotification === 'function')
-      showNotification(err.message, 'error');
+    showNotification(err.message, 'error');
   }
-}
-
-// ── DYNAMIC FIELDS ────────────────────────────────────────────
-
-function addEmailField(value = '') {
-  const c   = document.getElementById('emails-container');
-  const div = document.createElement('div');
-  div.className = 'multi-field-row';
-  div.innerHTML = `
-    <input type="email" class="email-input" value="${value}" placeholder="email@example.com">
-    <button type="button" class="btn-remove-field" onclick="this.parentElement.remove()">
-      <i class="ph ph-x"></i>
-    </button>`;
-  c.appendChild(div);
-}
-
-function addPhoneField(value = '') {
-  const c   = document.getElementById('phones-container');
-  const div = document.createElement('div');
-  div.className = 'multi-field-row';
-  div.innerHTML = `
-    <input type="tel" class="phone-input" value="${value}" placeholder="+254...">
-    <button type="button" class="btn-remove-field" onclick="this.parentElement.remove()">
-      <i class="ph ph-x"></i>
-    </button>`;
-  c.appendChild(div);
 }
 
 // ── EXPORT CSV ────────────────────────────────────────────────
 
 function exportResidentsCSV() {
   if (!allResidents.length) {
-    if (typeof showNotification === 'function') showNotification('No residents to export', 'warning');
+    showNotification('No residents to export', 'warning');
     return;
   }
 
   const escape = v => {
     const s = String(v ?? '');
-    // Wrap in quotes if contains comma, quote, or newline
     return s.includes(',') || s.includes('"') || s.includes('\n')
       ? `"${s.replace(/"/g, '""')}"` : s;
   };
@@ -351,45 +338,16 @@ function exportResidentsCSV() {
     escape(r.notes)
   ].join(','));
 
-  const csv     = [headers.join(','), ...rows].join('\n');
-  const blob    = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url     = URL.createObjectURL(blob);
-  const link    = document.createElement('a');
-  const date    = new Date().toISOString().split('T')[0];
+  const csv  = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const date = new Date().toISOString().split('T')[0];
 
   link.href     = url;
   link.download = `residents_${date}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 
-  if (typeof showNotification === 'function')
-    showNotification(`Exported ${allResidents.length} residents`, 'success');
-}
-
-// ── HELPERS ───────────────────────────────────────────────────
-
-function clearForm() {
-  ['f-unit-number','f-monthly-charge','f-full-name','f-move-in','f-notes'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
-  });
-  const typeEl = document.getElementById('f-type');
-  if (typeEl) typeEl.value = 'OWNER_OCCUPIER';
-  const activeEl = document.getElementById('f-is-active');
-  if (activeEl) activeEl.value = 'true';
-  document.getElementById('emails-container').innerHTML = '';
-  document.getElementById('phones-container').innerHTML = '';
-  hideError('modal-error');
-}
-
-function showError(id, msg) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.textContent    = msg;
-  el.style.display  = 'block';
-}
-
-function hideError(id) {
-  const el = document.getElementById(id);
-  if (el) el.style.display = 'none';
+  showNotification(`Exported ${allResidents.length} residents`, 'success');
 }

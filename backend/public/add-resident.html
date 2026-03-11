@@ -1,0 +1,203 @@
+<!-- add resident-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EstatePro | Add Resident</title>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="./styles/index.css">
+    <link rel="stylesheet" href="./styles/mobile.css">
+    <link rel="stylesheet" href="./styles/add-resident.css">
+    
+</head>
+<body>
+    <div class="dashboard-container">
+
+        <!-- SIDEBAR -->
+        <nav class="sidebar">
+            <div class="logo">
+                <i class="ph-bold ph-buildings"></i>
+                <span>EstatePro</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="#" class="nav-link" data-page="dashboard" onclick="loadPage('dashboard'); return false;">
+                    <i class="ph ph-squares-four"></i><span>Dashboard</span>
+                </a></li>
+                <li><a href="#" class="nav-link active" data-page="residents" onclick="loadPage('residents'); return false;">
+                    <i class="ph ph-users"></i><span>Residents</span>
+                </a></li>
+                <li><a href="#" class="nav-link" data-page="invoices" onclick="loadPage('invoices'); return false;">
+                    <i class="ph ph-receipt"></i><span>Invoices</span>
+                </a></li>
+                <li><a href="#" class="nav-link" data-page="payments" onclick="loadPage('payments'); return false;">
+                    <i class="ph ph-hand-coins"></i><span>Payments</span>
+                </a></li>
+                <li><a href="#" class="nav-link" data-page="collections" onclick="loadPage('collections'); return false;">
+                    <i class="ph ph-warning-circle"></i><span>Collections</span>
+                </a></li>
+                <li><a href="#" class="nav-link" data-page="communications" onclick="loadPage('communications'); return false;">
+                    <i class="ph ph-chat-dots"></i><span>Communications</span>
+                </a></li>
+                <li><a href="#" class="nav-link" data-page="reports" onclick="loadPage('reports'); return false;">
+                    <i class="ph ph-chart-line"></i><span>Reports</span>
+                </a></li>
+            </ul>
+            <div class="user-profile">
+                <div class="avatar" id="user-avatar">AO</div>
+                <div class="user-info">
+                    <p class="name" id="user-name">Admin User</p>
+                    <p class="role" id="user-role">Admin</p>
+                </div>
+            </div>
+        </nav>
+
+        <!-- MAIN CONTENT -->
+        <main class="content">
+            <header class="top-bar">
+                <div class="header-left">
+                    <h1 class="page-title">Add Resident</h1>
+                    <p class="page-subtitle">Create a new resident and assign to a unit</p>
+                </div>
+                <div class="header-right">
+                    <div class="date-time-display">
+                        <i class="ph ph-calendar-blank"></i>
+                        <span id="current-date-time">Loading...</span>
+                    </div>
+                    <button id="logout-btn" class="logout-btn" title="Logout">
+                        <i class="ph ph-sign-out"></i>
+                        <span>Logout</span>
+                    </button>
+                </div>
+            </header>
+
+            <div class="main-content">
+                <div class="add-resident-container">
+                    <div class="form-card">
+                        <div class="form-header">
+                            <h2><i class="ph ph-user-plus"></i> New Resident</h2>
+                            <p>Fill in the details below to create a new resident</p>
+                        </div>
+
+                        <form id="add-resident-form">
+
+                            <!-- Unit Details Section -->
+                            <div class="form-section">
+                                <h3 class="form-section-title"><i class="ph ph-house"></i> Unit Details</h3>
+                                <!--
+                                  #unit-field-wrapper is populated dynamically by add-resident.js:
+                                  - Locked display  → arriving via ?unitId=&unitNumber=&charge= (from vacant row click)
+                                  - Dropdown        → vacant units exist (normal Add Resident flow)
+                                  - Free-text inputs → no vacant units (brand-new unit)
+                                -->
+                                <div id="unit-field-wrapper">
+                                    <!-- Skeleton shown while JS loads the correct field -->
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>Unit Number *</label>
+                                            <input type="text" disabled placeholder="Loading...">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Monthly Charge (KES) *</label>
+                                            <input type="number" disabled placeholder="Loading...">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Resident Details Section -->
+                            <div class="form-section">
+                                <h3 class="form-section-title"><i class="ph ph-user"></i> Resident Details</h3>
+                                <div class="form-group">
+                                    <label>Full Name *</label>
+                                    <input type="text" id="f-full-name" placeholder="e.g. Jane Doe" required>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Occupancy Type *</label>
+                                        <select id="f-type" required>
+                                            <option value="">Select type...</option>
+                                            <option value="OWNER_OCCUPIER">Owner Occupier</option>
+                                            <option value="DIRECT_TENANT">Direct Tenant</option>
+                                            <option value="MANAGED_TENANT">Managed Tenant</option>
+                                            <option value="ABSENTEE_OWNER">Absentee Owner</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Move-in Date *</label>
+                                        <input type="date" id="f-move-in" required>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Status</label>
+                                    <select id="f-is-active">
+                                        <option value="true">Active</option>
+                                        <option value="false">Inactive</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Contact Information Section -->
+                            <div class="form-section">
+                                <div class="section-header">
+                                    <h3 class="form-section-title"><i class="ph ph-envelope"></i> Email Addresses</h3>
+                                    <button type="button" class="btn-add-field" onclick="addEmailField()">
+                                        <i class="ph ph-plus"></i> Add Email
+                                    </button>
+                                </div>
+                                <div id="emails-container">
+                                    <div class="multi-field-row">
+                                        <input type="email" placeholder="e.g. jane@example.com" class="email-field">
+                                        <button type="button" class="btn-remove-field" onclick="removeField(this)" style="display:none;">
+                                            <i class="ph ph-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-section">
+                                <div class="section-header">
+                                    <h3 class="form-section-title"><i class="ph ph-phone"></i> Phone Numbers</h3>
+                                    <button type="button" class="btn-add-field" onclick="addPhoneField()">
+                                        <i class="ph ph-plus"></i> Add Phone
+                                    </button>
+                                </div>
+                                <div id="phones-container">
+                                    <div class="multi-field-row">
+                                        <input type="tel" placeholder="e.g. +254700000000" class="phone-field">
+                                        <button type="button" class="btn-remove-field" onclick="removeField(this)" style="display:none;">
+                                            <i class="ph ph-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Notes Section -->
+                            <div class="form-section">
+                                <h3 class="form-section-title"><i class="ph ph-note"></i> Notes</h3>
+                                <textarea id="f-notes" placeholder="Any additional notes about this resident..."></textarea>
+                            </div>
+
+                            <!-- Error Message -->
+                            <div class="form-error" id="form-error" style="display:none;"></div>
+
+                            <!-- Form Actions -->
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" onclick="window.history.back()">
+                                    Back
+                                </button>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="ph ph-floppy-disk"></i> Save Resident
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/js/index.js"></script>
+    <script src="/js/add-resident.js"></script>
+</body>
+</html>
