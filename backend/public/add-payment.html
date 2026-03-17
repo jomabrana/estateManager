@@ -1,48 +1,196 @@
-<link rel="stylesheet" href="/styles/index.css">
-<link rel="stylesheet" href="/styles/add-payment.css">
-<script src="/js/add-payment.js"></script>
-
-<div class="card">
-    <div class="card-header">
-        <h2 class="card-title">Record Payment</h2>
-    </div>
+<!-- ADD PAYMENT PAGE — Phase 4 with Auto-Generate Receipt -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EstatePro | Record Payment</title>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <link rel="stylesheet" href="./styles/index.css">
+  <link rel="stylesheet" href="./styles/mobile.css">
+  <link rel="stylesheet" href="./styles/add-resident.css">
+  <style>
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 640px) { .form-row { grid-template-columns: 1fr; } }
     
-    <form id="payment-form">
-        <div class="form-group">
-            <label>Resident/Invoice *</label>
+    /* Receipt input with button */
+    .form-group-with-action {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+    
+    .form-group-with-action .form-group {
+      flex: 1;
+      margin-bottom: 0;
+    }
+    
+    .form-group-with-action .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+    
+    .form-group-with-action input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      box-sizing: border-box;
+    }
+    
+    .form-group-with-action input:focus {
+      outline: none;
+      border-color: #2563eb;
+      background: #f8fafc;
+    }
+    
+    .btn-generate-receipt {
+      padding: 10px 14px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      transition: background 0.2s;
+    }
+    
+    .btn-generate-receipt:hover {
+      background: #2563eb;
+    }
+    
+    .btn-generate-receipt:active {
+      transform: scale(0.98);
+    }
+    
+    .receipt-hint {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 4px;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+<div class="dashboard-container">
+  <nav class="sidebar">
+    <div class="logo"><i class="ph-bold ph-buildings"></i><span>EstatePro</span></div>
+    <ul class="nav-links">
+      <li><a href="#" class="nav-link" onclick="loadPage('dashboard');return false;"><i class="ph ph-squares-four"></i><span>Dashboard</span></a></li>
+      <li><a href="#" class="nav-link" onclick="loadPage('residents');return false;"><i class="ph ph-users"></i><span>Residents</span></a></li>
+      <li><a href="#" class="nav-link" onclick="loadPage('invoices');return false;"><i class="ph ph-receipt"></i><span>Invoices</span></a></li>
+      <li><a href="#" class="nav-link active" onclick="loadPage('payments');return false;"><i class="ph ph-hand-coins"></i><span>Payments</span></a></li>
+      <li><a href="#" class="nav-link" onclick="loadPage('collections');return false;"><i class="ph ph-warning-circle"></i><span>Collections</span></a></li>
+      <li><a href="#" class="nav-link" onclick="loadPage('communications');return false;"><i class="ph ph-chat-dots"></i><span>Communications</span></a></li>
+      <li><a href="#" class="nav-link" onclick="loadPage('reports');return false;"><i class="ph ph-chart-line"></i><span>Reports</span></a></li>
+    </ul>
+    <div class="user-profile">
+      <div class="avatar" id="user-avatar">AO</div>
+      <div class="user-info"><p class="name" id="user-name">Admin</p><p class="role" id="user-role">Admin</p></div>
+    </div>
+  </nav>
+
+  <main class="content">
+    <header class="top-bar">
+      <div class="header-left">
+        <h1 class="page-title">Record Payment</h1>
+        <p class="page-subtitle">Manual payment (Cash, Bank Transfer, Check)</p>
+      </div>
+      <div class="header-right">
+        <div class="date-time-display"><i class="ph ph-calendar-blank"></i><span id="current-date-time">Loading...</span></div>
+        <button id="logout-btn" class="logout-btn"><i class="ph ph-sign-out"></i><span>Logout</span></button>
+      </div>
+    </header>
+
+    <div class="main-content">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title"><i class="ph ph-credit-card"></i> Record Payment</h2>
+        </div>
+
+        <form id="payment-form" style="padding: 20px;">
+          
+          <!-- INVOICE SELECTION -->
+          <div class="form-group">
+            <label>Invoice/Resident *</label>
             <select id="payment-invoice" required>
-                <option value="">Select...</option>
+              <option value="">Select...</option>
             </select>
-        </div>
-        
-        <div class="form-group">
-            <label>Amount (KES) *</label>
-            <input type="number" id="payment-amount" placeholder="5500" required>
-        </div>
-        
-        <div class="form-group">
-            <label>Payment Method *</label>
-            <select id="payment-method" required>
+          </div>
+
+          <!-- AMOUNT & DATE -->
+          <div class="form-row">
+            <div class="form-group">
+              <label>Amount (KES) *</label>
+              <input type="number" id="payment-amount" placeholder="0" min="0.01" step="any" required>
+            </div>
+            <div class="form-group">
+              <label>Payment Date *</label>
+              <input type="date" id="payment-date" required>
+            </div>
+          </div>
+
+          <!-- METHOD & RECEIPT WITH AUTO-GENERATE BUTTON -->
+          <div class="form-row">
+            <div class="form-group">
+              <label>Payment Method *</label>
+              <select id="payment-method" required>
                 <option value="">Select...</option>
-                <option value="MPESA">M-Pesa</option>
-                <option value="BANK_TRANSFER">Bank Transfer</option>
                 <option value="CASH">Cash</option>
-                <option value="CHECK">Check</option>
-            </select>
-        </div>
-        
-        <div class="form-group">
-            <label>Payment Date *</label>
-            <input type="date" id="payment-date" required>
-        </div>
-        
-        <div class="form-actions">
-            <div class="form-actions">
-                                <button type="button" class="btn btn-secondary" onclick="window.history.back()">
-                                    Back
-                                </button>
-            <button type="submit" class="btn btn-primary">Record Payment</button>
-        </div>
-    </form>
+                <option value="BANK_TRANSFER">Bank Transfer</option>
+                <option value="CHEQUE">Cheque</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+            
+            <div class="form-group-with-action">
+              <div class="form-group">
+                <label>Receipt/Ref Number *</label>
+                <input type="text" id="payment-receipt" placeholder="e.g. REC-20250315-001" required>
+              </div>
+              <button type="button" class="btn-generate-receipt" onclick="generateReceipt()" title="Auto-generate receipt number">
+                <i class="ph ph-lightning-charge"></i> Generate
+              </button>
+            </div>
+          </div>
+
+          <div class="receipt-hint">
+            💡 Tip: Click "Generate" for auto receipt, or enter your own (M-PESA ID, Cheque #, etc)
+          </div>
+
+          <!-- NOTES -->
+          <div class="form-group">
+            <label>Notes (Optional)</label>
+            <textarea id="payment-notes" rows="3" placeholder="e.g. Cheque #12345, Bank XYZ..."></textarea>
+          </div>
+
+          <!-- ACTIONS -->
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" onclick="window.history.back()">
+              <i class="ph ph-arrow-left"></i> Back
+            </button>
+            <button type="submit" class="btn btn-primary">
+              <i class="ph ph-check-circle"></i> Record Payment
+            </button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  </main>
 </div>
 
+<script src="/js/index.js"></script>
+<script src="/js/add-payment.js"></script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// INVOICE DETAIL PAGE — Phase 2: includes monthly breakdown section
+// INVOICE DETAIL PAGE — Phase 4: Payment recording with FIFO allocation
 // ═══════════════════════════════════════════════════════════════════════════════
 
 let _invoiceId = null;
@@ -23,11 +23,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
+  // Set default payment date to today
   document.getElementById("pay-date").value = new Date().toISOString().split("T")[0];
+
   await loadInvoice();
 });
 
-// ── Load ──────────────────────────────────────────────────────────────────────
+// ── Load Invoice ──────────────────────────────────────────────────────────────
 
 async function loadInvoice() {
   try {
@@ -41,6 +43,9 @@ async function loadInvoice() {
     _invoice = data.invoice;
     renderInvoice(_invoice);
 
+    // Load payment history (Phase 4)
+    await loadPaymentHistory(_invoiceId);
+
     document.getElementById("inv-loading").style.display = "none";
     document.getElementById("inv-content").style.display = "block";
   } catch (err) {
@@ -49,7 +54,7 @@ async function loadInvoice() {
   }
 }
 
-// ── Render ────────────────────────────────────────────────────────────────────
+// ── Render Invoice ────────────────────────────────────────────────────────────
 
 function renderInvoice(inv) {
   document.getElementById("inv-subtitle").textContent =
@@ -78,14 +83,13 @@ function renderInvoice(inv) {
   document.getElementById("d-phones").textContent =
     (inv.resident?.phones || []).join(", ") || "—";
 
-  const payBtn = document.querySelector("[data-action='open-payment']");
-  if (payBtn && inv.status === "PAID") {
-    payBtn.disabled = true;
-    payBtn.title    = "Invoice is fully paid";
+  // Disable payment section if fully paid
+  const paySection = document.getElementById("payment-recording-section");
+  if (paySection && inv.status === "PAID") {
+    paySection.style.display = "none";
   }
 
   renderMonthlyBreakdown(inv.monthlyCharges || []);
-  renderPayments(inv.payments || []);
 }
 
 // ── Monthly breakdown table ───────────────────────────────────────────────────
@@ -133,63 +137,70 @@ function renderMonthlyBreakdown(months) {
   }).join("");
 }
 
-// ── Payments table ────────────────────────────────────────────────────────────
+// ── PHASE 4: Preview Payment Allocation UI ────────────────────────────────────
 
-function renderPayments(payments) {
-  const tbody   = document.getElementById("payments-tbody");
-  const countEl = document.getElementById("payment-count");
+async function previewPaymentAllocationUI() {
+  const amountEl = document.getElementById("pay-amount");
+  const amount = parseFloat(amountEl.value);
 
-  if (countEl) countEl.textContent = `${payments.length} payment${payments.length !== 1 ? "s" : ""}`;
-
-  if (!payments.length) {
-    tbody.innerHTML = `<tr><td colspan="5" class="table-empty">No payments recorded yet</td></tr>`;
+  if (!amount || amount <= 0) {
+    showPayError("Please enter a valid amount");
     return;
   }
 
-  tbody.innerHTML = payments.map(p => `
-    <tr>
-      <td>${formatDate(p.paymentDate)}</td>
-      <td class="text-success"><strong>${formatKES(p.amountPaid)}</strong></td>
-      <td><span class="badge badge-info">${p.method}</span></td>
-      <td><code style="font-size:0.8rem;">${p.receiptNo}</code></td>
-      <td style="color:var(--text-muted);font-size:0.85rem;">${p.notes || "—"}</td>
-    </tr>`).join("");
-}
-
-// ── Payment modal ─────────────────────────────────────────────────────────────
-
-function openPaymentModal() {
-  if (_invoice) {
-    const totalPaid   = (_invoice.payments || []).reduce((s, p) => s + parseFloat(p.amountPaid), 0);
-    const outstanding = Math.max(0, parseFloat(_invoice.amount) + parseFloat(_invoice.lateFee || 0) - totalPaid);
-    document.getElementById("pay-amount").value = outstanding > 0 ? outstanding.toFixed(2) : "";
+  if (!_invoice?.monthlyCharges || _invoice.monthlyCharges.length === 0) {
+    showPayError("No monthly breakdown found for this invoice");
+    return;
   }
-  document.getElementById("pay-error").style.display = "none";
-  document.getElementById("payment-modal").classList.add("open");
+
+  try {
+    // Use the preview function from payments.js
+    const preview = await previewPaymentAllocation(_invoiceId, amount);
+    
+    if (!preview) {
+      showPayError("Error getting preview");
+      return;
+    }
+
+    // Display the preview
+    displayAllocationPreview(preview);
+    clearPayError();
+  } catch (err) {
+    console.error("Preview error:", err);
+    showPayError("Error previewing allocation");
+  }
 }
 
-function closePaymentModal() {
-  document.getElementById("payment-modal").classList.remove("open");
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("payment-modal")?.addEventListener("click", function(e) {
-    if (e.target === this) closePaymentModal();
-  });
-});
+// ── PHASE 4: Submit Payment ───────────────────────────────────────────────────
 
 async function submitPayment() {
   const amountEl = document.getElementById("pay-amount");
   const method   = document.getElementById("pay-method").value;
   const date     = document.getElementById("pay-date").value;
+  const receipt  = document.getElementById("pay-receipt").value.trim();
   const notes    = document.getElementById("pay-notes").value.trim();
   const btn      = document.getElementById("pay-submit-btn");
 
-  document.getElementById("pay-error").style.display = "none";
+  clearPayError();
 
+  // Validation
   const amount = parseFloat(amountEl.value);
-  if (!amount || amount <= 0) { showPayError("Please enter a valid amount"); return; }
-  if (!date)                  { showPayError("Payment date is required"); return; }
+  if (!amount || amount <= 0) { 
+    showPayError("Please enter a valid amount"); 
+    return; 
+  }
+  if (!date) { 
+    showPayError("Payment date is required"); 
+    return; 
+  }
+  if (!method) { 
+    showPayError("Payment method is required"); 
+    return; 
+  }
+  if (!receipt) { 
+    showPayError("Receipt number is required"); 
+    return; 
+  }
 
   const originalHTML = btn.innerHTML;
   btn.disabled  = true;
@@ -197,67 +208,94 @@ async function submitPayment() {
 
   try {
     const token = localStorage.getItem("token");
-    const res   = await fetch("/api/payments", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body:    JSON.stringify({ invoiceId: _invoiceId, amountPaid: amount, method, paymentDate: date, notes: notes || null })
+    const res = await fetch(`/api/invoices/${_invoiceId}/record-payment`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json", 
+        Authorization: `Bearer ${token}` 
+      },
+      body: JSON.stringify({
+        amountPaid: amount,
+        paymentDate: date,
+        method,
+        receiptNo: receipt,
+        notes: notes || null
+      })
     });
+
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Failed to record payment");
 
-    showNotification("Payment recorded successfully!", "success");
-    closePaymentModal();
+    showNotification("✅ Payment recorded successfully!", "success");
+    
+    // Clear form
     amountEl.value = "";
+    document.getElementById("pay-receipt").value = "";
     document.getElementById("pay-notes").value = "";
+    document.getElementById("allocation-preview").style.display = "none";
+
+    // Reload invoice
     await loadInvoice();
   } catch (err) {
-    showPayError(err.message);
+    console.error("Record payment error:", err);
+    showPayError(err.message || "Error recording payment");
     btn.disabled  = false;
     btn.innerHTML = originalHTML;
   }
 }
 
+// ── Error/Success Helpers ─────────────────────────────────────────────────────
+
 function showPayError(msg) {
   const el = document.getElementById("pay-error");
-  el.textContent   = msg;
-  el.style.display = "block";
+  el.textContent = msg;
+  el.classList.add("show");
+}
+
+function clearPayError() {
+  const el = document.getElementById("pay-error");
+  el.textContent = "";
+  el.classList.remove("show");
 }
 
 function goToEdit() {
   window.location.href = `/add-invoice.html?edit=${_invoiceId}`;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Formatting Helpers ────────────────────────────────────────────────────────
 
 function formatKES(amount) {
   return new Intl.NumberFormat("en-KE", {
-    style: "currency", currency: "KES", minimumFractionDigits: 0
+    style: "currency", 
+    currency: "KES", 
+    minimumFractionDigits: 0
   }).format(parseFloat(amount) || 0);
 }
 
 function formatDate(dateStr) {
   if (!dateStr) return "—";
-  // Split off time before parsing so UTC midnight doesn't shift to previous day in EAT
   const datePart  = dateStr.split("T")[0];
   const [y, m, d] = datePart.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString("en-KE", {
-    day: "numeric", month: "short", year: "numeric"
+    day: "numeric", 
+    month: "short", 
+    year: "numeric"
   });
 }
 
 function monthLabel(month, year) {
   if (!month || !year) return "—";
-  return new Date(year, month - 1, 1).toLocaleDateString("en-KE", { month: "long", year: "numeric" });
+  return new Date(year, month - 1, 1).toLocaleDateString("en-KE", { 
+    month: "long", 
+    year: "numeric" 
+  });
 }
 
 function calcDaysOverdue(dueDateStr) {
   if (!dueDateStr) return 0;
-  // Parse as local date by taking only the date portion (YYYY-MM-DD).
-  // Using new Date(isoString) shifts UTC midnight into local time in EAT/other
-  // positive-offset zones, making the date appear one day earlier than intended.
-  const datePart  = dueDateStr.split("T")[0];          // "2025-03-31"
+  const datePart  = dueDateStr.split("T")[0];
   const [y, m, d] = datePart.split("-").map(Number);
-  const dueDay    = new Date(y, m - 1, d);             // local midnight
+  const dueDay    = new Date(y, m - 1, d);
   const today     = new Date();
   const todayDay  = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   return Math.max(0, Math.floor((todayDay - dueDay) / 86400000));

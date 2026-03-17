@@ -4,7 +4,10 @@ const router = express.Router();
 const { protect } = require("../middleware/authMiddleware");
 
 // Controllers
-const { createEstate, getEstates, getEstate, updateEstate, deleteEstate } = require("../controllers/estateController");
+const { 
+  createEstate, getEstates, getEstate, updateEstate, deleteEstate,  getLateFeeConfig, updateLateFeeConfig 
+} = require("../controllers/estateController");
+
 const { createUnit, getUnits, getUnit, updateUnit, deleteUnit } = require("../controllers/unitController");
 const { createTenant, getTenants, getTenant, updateTenant, deleteTenant } = require("../controllers/tenantController");
 const { registerUrls, validatePayment, confirmPayment, getPayments, createPayment } = require("../controllers/paymentController");
@@ -17,7 +20,13 @@ const {
   updateInvoice,
   deleteInvoice,
   generateMonthlyInvoices,
-  backfillInvoiceMonths
+  backfillInvoiceMonths,
+  applyLateFees,            // Phase 3
+  getInvoiceLateFees,       // Phase 3
+  waveLateFee,              // Phase 3
+  recordPayment,            // Phase 4
+  previewPayment,           // Phase 4
+  getInvoicePaymentHistory  // Phase 4
 } = require("../controllers/invoiceController");
 const { getCommunications, getCommunicationHistory, sendManualCommunication, getCommunicationQueue, retryCommunication } = require('../controllers/communicationLogController');
 
@@ -29,6 +38,8 @@ router.get("/estates", protect, getEstates);
 router.get("/estates/:id", protect, getEstate);
 router.put("/estates/:id", protect, updateEstate);
 router.delete("/estates/:id", protect, deleteEstate);
+router.get("/estates/:id/late-fee-config", protect, getLateFeeConfig);
+router.put("/estates/:id/late-fee-config", protect, updateLateFeeConfig);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // UNITS
@@ -69,6 +80,16 @@ router.post("/invoices/backfill-months",     protect, backfillInvoiceMonths);
 router.get("/invoices/:id",                  protect, getInvoice);
 router.put("/invoices/:id",                  protect, updateInvoice);
 router.delete("/invoices/:id",               protect, deleteInvoice);
+
+// PHASE 3: Late Fees
+router.post("/invoices/:invoiceId/apply-late-fees", protect, applyLateFees);
+router.get("/invoices/:invoiceId/late-fees", protect, getInvoiceLateFees);
+router.post("/late-fees/:feeId/waive", protect, waveLateFee);
+
+// PHASE 4: Payment Recording & FIFO Allocation
+router.post("/invoices/:invoiceId/preview-payment", protect, previewPayment);
+router.post("/invoices/:invoiceId/record-payment", protect, recordPayment);
+router.get("/invoices/:invoiceId/payment-history", protect, getInvoicePaymentHistory);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // COMMUNICATIONS

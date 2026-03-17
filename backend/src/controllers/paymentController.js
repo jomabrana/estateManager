@@ -1,99 +1,22 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// PAYMENT CONTROLLER — Daraja C2B (Customer to Business) Integration
-// ═══════════════════════════════════════════════════════════════════════════════
-//
-// HOW DARAJA C2B WORKS — THE FULL PICTURE
-// ─────────────────────────────────────────
-// Daraja C2B is the API that lets you RECEIVE M-PESA payments automatically.
-// Here's the flow from the moment a resident sends money to your Paybill:
-//
-//  1. Resident opens M-PESA on their phone → Lipa Na M-PESA → Pay Bill
-//     → enters your Paybill number + Account Number (e.g. their unit "Unit 5")
-//     → enters amount → enters PIN
-//
-//  2. M-PESA sends a VALIDATION request to YOUR server (POST to /api/payments/validate)
-//     asking: "Is this account number valid? Should I allow this transaction?"
-//     Your server must respond within ~5 seconds with ResultCode: 0 (accept)
-//     or ResultCode: C2B00011 (reject). This step is optional but recommended.
-//
-//  3. If validation passes, M-PESA processes the payment and sends a CONFIRMATION
-//     request to YOUR server (POST to /api/payments/confirm) with the full
-//     transaction details. This is the definitive "money received" event.
-//     You MUST respond with ResultCode: 0 within ~5 seconds or M-PESA will retry.
-//
-//  4. Your server saves the payment to the database and links it to the resident.
-//
-// BEFORE ANY OF THIS WORKS — URL REGISTRATION
-// ─────────────────────────────────────────────
-// M-PESA doesn't know where to send those callbacks until you register your URLs.
-// You call the Daraja Register URL API once (or whenever your URLs change), telling
-// M-PESA: "For transactions on shortcode XXXXXX, send callbacks to these URLs."
-// This is done via POST /api/payments/register-urls (protected, admin-only).
-//
-// YOUR CALLBACK URLS MUST BE:
-//   • Publicly accessible (not localhost) — use ngrok for local dev
-//   • HTTPS only
-//   • Respond with HTTP 200 + correct JSON body within 5 seconds
-//
-// ENVIRONMENT VARIABLES NEEDED (.env)
-// ─────────────────────────────────────
-//   MPESA_CONSUMER_KEY       — from your Daraja app dashboard
-//   MPESA_CONSUMER_SECRET    — from your Daraja app dashboard
-//   MPESA_SHORTCODE          — your Paybill number (6 digits)
-//   MPESA_ENVIRONMENT        — "sandbox" or "production"
-//   APP_BASE_URL             — your public HTTPS URL e.g. https://yourdomain.com
-//
-// SANDBOX vs PRODUCTION
-// ──────────────────────
-// Sandbox:    https://sandbox.safaricom.co.ke  (fake money, test only)
-// Production: https://api.safaricom.co.ke      (real money, go-live required)
-// Switch is controlled by MPESA_ENVIRONMENT in .env
-//
+// PAYMENT CONTROLLER 
+// Daraja C2B (Customer to Business) Integration + Manual Payments
+// ALL payments use FIFO allocation via Phase 4 endpoints
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const prisma = require("../../prisma/client");
-
-// ── reconcileInvoice ──────────────────────────────────────────────────────────
-// Kept here (not imported from invoiceController) to avoid a circular
-// require() dependency: api.js → paymentController → invoiceController → api.js
-// The logic is identical to the copy in invoiceController.
-async function reconcileInvoice(invoiceId) {
-  const invoice = await prisma.invoice.findUnique({
-    where:   { id: invoiceId },
-    include: { payments: { select: { amountPaid: true } } }
-  });
-  if (!invoice) return;
-
-  const totalPaid   = invoice.payments.reduce((s, p) => s + parseFloat(p.amountPaid), 0);
-  const totalDue    = parseFloat(invoice.amount) + parseFloat(invoice.lateFee || 0);
-  const outstanding = Math.max(0, totalDue - totalPaid);
-
-  let status;
-  if (totalPaid >= totalDue) status = "PAID";
-  else if (totalPaid > 0)    status = "PARTIAL";
-  else                       status = "PENDING";
-
-  await prisma.invoice.update({
-    where: { id: invoiceId },
-    data:  { totalPaid, totalOutstanding: outstanding, status }
-  });
-}
+const { recordPaymentWithFIFO } = require("../utils/payment-allocation-utility");
 
 // ── BASE URL switches automatically between sandbox and production ──
 const MPESA_BASE_URL = process.env.MPESA_ENVIRONMENT === "production"
   ? "https://api.safaricom.co.ke"
   : "https://sandbox.safaricom.co.ke";
 
-// ── STEP 1: Get an OAuth Access Token ────────────────────────────────────────
-// Every Daraja API call requires a Bearer token. Tokens expire after 1 hour.
-// We cache the token in memory and re-fetch only when it expires.
-// Daraja uses HTTP Basic Auth: base64(ConsumerKey:ConsumerSecret)
-// ─────────────────────────────────────────────────────────────────────────────
+// ── OAuth Token Caching ────────────────────────────────────────────────────────
 let _cachedToken    = null;
 let _tokenExpiresAt = 0;
 
 async function getDarajaToken() {
-  // Return cached token if still valid (with 60s buffer)
   if (_cachedToken && Date.now() < _tokenExpiresAt - 60_000) {
     return _cachedToken;
   }
@@ -103,7 +26,6 @@ async function getDarajaToken() {
 
   if (!key || !secret) throw new Error("MPESA credentials not configured in .env");
 
-  // Basic Auth = base64("ConsumerKey:ConsumerSecret")
   const credentials = Buffer.from(`${key}:${secret}`).toString("base64");
 
   const res = await fetch(
@@ -118,7 +40,6 @@ async function getDarajaToken() {
 
   const data       = await res.json();
   _cachedToken     = data.access_token;
-  // expires_in is in seconds; convert to ms timestamp
   _tokenExpiresAt  = Date.now() + parseInt(data.expires_in) * 1000;
 
   return _cachedToken;
@@ -135,18 +56,7 @@ async function requireEstateId(userId) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// REGISTER URLS
-// POST /api/payments/register-urls   (protected — admin calls this once)
-// ───────────────────────────────────────────────────────────────────────────────
-// This tells M-PESA where to send validation and confirmation callbacks for
-// your shortcode. You only need to call this:
-//   • The first time you set up the integration
-//   • Any time your server URL changes (e.g. new domain)
-//
-// ResponseType "Completed" means: if your validation URL is unreachable,
-// M-PESA will complete the transaction anyway.
-// ResponseType "Cancelled" means: if unreachable, transaction is cancelled.
-// "Completed" is safer for production so payments aren't blocked by downtime.
+// REGISTER URLS — POST /api/payments/register-urls (protected)
 // ═══════════════════════════════════════════════════════════════════════════════
 const registerUrls = async (req, res) => {
   try {
@@ -190,40 +100,10 @@ const registerUrls = async (req, res) => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// VALIDATION CALLBACK
-// POST /api/payments/validate   (called by M-PESA — NO auth middleware)
-// ───────────────────────────────────────────────────────────────────────────────
-// M-PESA hits this URL BEFORE completing the transaction, asking:
-// "Is this account number valid? Should I proceed?"
-//
-// The resident enters their unit number as the M-PESA account reference.
-// e.g. "Unit 5" or "Unit 12"
-//
-// M-PESA expects a response within ~5 seconds.
-// ResultCode 0       = Accept the transaction
-// ResultCode C2B00011 = Reject (invalid account)
-//
-// IMPORTANT: This endpoint must NOT be behind your protect middleware.
-// M-PESA calls it directly — there's no JWT token involved.
+// VALIDATION CALLBACK — POST /api/payments/validate (no auth)
+// Called by M-PESA BEFORE transaction to validate account number
 // ═══════════════════════════════════════════════════════════════════════════════
 const validatePayment = async (req, res) => {
-  // M-PESA sends this payload shape:
-  // {
-  //   TransactionType: "Pay Bill",
-  //   TransID:         "LKXXXX1234",
-  //   TransTime:       "20240315120000",
-  //   TransAmount:     "5000.00",
-  //   BusinessShortCode: "600XXX",
-  //   BillRefNumber:   "Unit 5",        ← the account number the resident typed
-  //   InvoiceNumber:   "",
-  //   OrgAccountBalance: "0.00",
-  //   ThirdPartyTransID: "",
-  //   MSISDN:          "2547XXXXXXXX",  ← resident's phone (may be masked)
-  //   FirstName:       "JOHN",
-  //   MiddleName:      "",
-  //   LastName:        "DOE"
-  // }
-
   const { BillRefNumber } = req.body;
 
   console.log("📥 M-PESA Validation request:", JSON.stringify(req.body, null, 2));
@@ -240,7 +120,6 @@ const validatePayment = async (req, res) => {
     });
 
     if (!unit || unit.residents.length === 0) {
-      // Unknown unit or no active resident — reject
       console.warn(`⚠️  Validation rejected: unknown account "${BillRefNumber}"`);
       return res.json({
         ResultCode:   "C2B00011",
@@ -248,42 +127,28 @@ const validatePayment = async (req, res) => {
       });
     }
 
-    // Accept — M-PESA will proceed to process the payment
+    // Accept
     return res.json({ ResultCode: "0", ResultDesc: "Accepted" });
 
   } catch (err) {
     console.error("Validation error:", err);
-    // On error, accept anyway so we don't block legitimate payments
-    // The confirmation callback will still arrive and we save it there
+    // On error, accept anyway
     return res.json({ ResultCode: "0", ResultDesc: "Accepted" });
   }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// CONFIRMATION CALLBACK
-// POST /api/payments/confirm   (called by M-PESA — NO auth middleware)
-// ───────────────────────────────────────────────────────────────────────────────
-// M-PESA hits this URL AFTER the transaction is complete. Money has moved.
-// This is where you save the payment to your database.
-//
-// The BillRefNumber is the account number the resident typed — we expect
-// them to type their unit number (e.g. "Unit 5").
-//
-// We match the payment to a resident by:
-//   1. Finding the unit by unitNumber
-//   2. Getting the active resident on that unit
-//   3. Finding their most recent PENDING invoice (if any) to link the payment
-//
-// M-PESA expects HTTP 200 + ResultCode 0 within ~5 seconds.
-// If we don't respond in time, M-PESA will retry (up to 3 times).
+// CONFIRMATION CALLBACK — POST /api/payments/confirm (no auth)
+// Called by M-PESA AFTER transaction is complete
+// NOW USES PHASE 4 FIFO ALLOCATION
 // ═══════════════════════════════════════════════════════════════════════════════
 const confirmPayment = async (req, res) => {
   const {
-    TransID,            // M-PESA transaction ID e.g. "LGR019G3J4"
-    TransTime,          // "20240315120530" — YYYYMMDDHHmmss
+    TransID,            // M-PESA transaction ID
+    TransTime,          // "20240315120530" YYYYMMDDHHmmss
     TransAmount,        // "5000.00"
-    BillRefNumber,      // "Unit 5" — account number resident entered
-    MSISDN,             // "2547XXXXXXXX" — may be partially masked
+    BillRefNumber,      // "Unit 5" — account number
+    MSISDN,             // "2547XXXXXXXX"
     FirstName,
     MiddleName,
     LastName
@@ -291,13 +156,12 @@ const confirmPayment = async (req, res) => {
 
   console.log("📥 M-PESA Confirmation:", JSON.stringify(req.body, null, 2));
 
-  // Always respond immediately — save asynchronously
-  // This ensures M-PESA gets its 200 OK within the timeout
+  // ✅ Respond immediately to M-PESA
   res.json({ ResultCode: "0", ResultDesc: "Accepted" });
 
-  // ── Now process and save the payment ────────────────────────────────────────
+  // ── Process asynchronously ────────────────────────────────────────────────────
   try {
-    // Guard: don't save duplicate transactions
+    // Guard: duplicate transaction
     const existing = await prisma.payment.findUnique({
       where: { receiptNo: TransID }
     });
@@ -306,7 +170,7 @@ const confirmPayment = async (req, res) => {
       return;
     }
 
-    // Find the unit by account reference (what resident typed)
+    // Find unit and resident
     const unit = await prisma.unit.findFirst({
       where: {
         unitNumber: { equals: BillRefNumber?.trim(), mode: "insensitive" }
@@ -322,8 +186,7 @@ const confirmPayment = async (req, res) => {
 
     const resident = unit?.residents?.[0] ?? null;
 
-    // Find the resident's oldest PENDING invoice to link this payment to
-    // (if no invoice found, we still save the payment — it's unlinked)
+    // Find oldest PENDING/OVERDUE/PARTIAL invoice
     let invoiceId = null;
     if (resident) {
       const pendingInvoice = await prisma.invoice.findFirst({
@@ -334,42 +197,36 @@ const confirmPayment = async (req, res) => {
     }
 
     if (!invoiceId) {
-      // No invoice to link — log and skip saving (or save to a separate log table)
-      console.warn(`⚠️  Payment ${TransID} received for "${BillRefNumber}" but no matching invoice found. Saving as unlinked.`);
-      // You could save to a separate "unmatched payments" log here
+      console.warn(`⚠️  Payment ${TransID} for "${BillRefNumber}" has no matching invoice. Skipping.`);
       return;
     }
 
-    // Parse M-PESA timestamp: "20240315120530" → Date
+    // ✅ NOW USE PHASE 4 FIFO ALLOCATION ✅
     const paymentDate = parseTransTime(TransTime);
+    const receipt = buildMpesaReceipt(TransID, FirstName, MiddleName, LastName, MSISDN);
 
-    // Fetch estateId so Payment.estateId (required by new schema) is satisfied
-    const invoiceRecord = await prisma.invoice.findUnique({
-      where:  { id: invoiceId },
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
       select: { estateId: true }
     });
 
-    // Save the payment
-    await prisma.payment.create({
-      data: {
-        invoiceId,
-        estateId:   invoiceRecord.estateId,
-        paymentDate,
-        amountPaid: parseFloat(TransAmount),
-        method:     "M-PESA",
-        receiptNo:  TransID,
-        notes:      buildPayerNote(FirstName, MiddleName, LastName, MSISDN)
-      }
-    });
+    // Use recordPaymentWithFIFO from payment-allocation-utility.js
+    const result = await recordPaymentWithFIFO(
+      invoiceId,
+      parseFloat(TransAmount),
+      paymentDate,
+      "M-PESA",
+      TransID,  // receiptNo
+      receipt,  // notes
+      invoice.estateId
+    );
 
-    // Update invoice status based on how much has been paid
-    await reconcileInvoice(invoiceId);
-
-    console.log(`✅ Payment saved: ${TransID} — KES ${TransAmount} for ${BillRefNumber}`);
+    console.log(`✅ M-PESA Payment saved with FIFO allocation: ${TransID} — KES ${TransAmount}`);
+    console.log(`   Allocated to ${result.allocations.length} month(s)`);
 
   } catch (err) {
     console.error("❌ Confirmation processing error:", err);
-    // Don't re-throw — response was already sent to M-PESA
+    // Don't re-throw — response already sent to M-PESA
   }
 };
 
@@ -385,20 +242,19 @@ function parseTransTime(transTime) {
   return new Date(`${y}-${mo}-${d}T${h}:${mi}:${s}+03:00`); // EAT = UTC+3
 }
 
-// ── Build a readable note from the payer's name + phone ───────────────────────
-function buildPayerNote(first, middle, last, phone) {
+// ── Build M-PESA receipt note with payer info ──────────────────────────────────
+function buildMpesaReceipt(transId, first, middle, last, phone) {
   const name = [first, middle, last].filter(Boolean).join(" ");
   const parts = [];
-  if (name)  parts.push(`Paid by: ${name}`);
-  if (phone) parts.push(`Phone: ${phone}`);
+  if (name)    parts.push(`Paid by: ${name}`);
+  if (phone)   parts.push(`Phone: ${phone}`);
+  if (transId) parts.push(`M-PESA Ref: ${transId}`);
   return parts.join(" | ") || null;
 }
 
-
 // ═══════════════════════════════════════════════════════════════════════════════
-// GET PAYMENTS  (protected — dashboard)
-// GET /api/payments
-// Returns all payments for the estate, newest first
+// GET PAYMENTS — GET /api/payments (protected)
+// List all payments for the estate
 // ═══════════════════════════════════════════════════════════════════════════════
 const getPayments = async (req, res) => {
   try {
@@ -438,15 +294,23 @@ const getPayments = async (req, res) => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// RECORD MANUAL PAYMENT  (protected — for cash / bank transfer payments)
-// POST /api/payments
-// Body: { invoiceId, amountPaid, method, paymentDate, notes }
+// CREATE PAYMENT (MANUAL) — POST /api/payments (protected)
+// Record manual payment (Cash, Bank Transfer, Check)
+// NOW USES PHASE 4 FIFO ALLOCATION
 // ═══════════════════════════════════════════════════════════════════════════════
 const createPayment = async (req, res) => {
-  const { invoiceId, amountPaid, method, paymentDate, notes } = req.body;
+  const { invoiceId, amountPaid, method, paymentDate, receiptNo, notes } = req.body;
 
-  if (!invoiceId || !amountPaid || !method)
-    return res.status(400).json({ error: "invoiceId, amountPaid and method are required" });
+  // Validation
+  if (!invoiceId || !amountPaid || !method || !receiptNo) {
+    return res.status(400).json({
+      error: "invoiceId, amountPaid, method, and receiptNo are required"
+    });
+  }
+
+  if (parseFloat(amountPaid) <= 0) {
+    return res.status(400).json({ error: "amountPaid must be greater than 0" });
+  }
 
   try {
     const estateId = await requireEstateId(req.user.userId);
@@ -455,33 +319,51 @@ const createPayment = async (req, res) => {
     const invoice = await prisma.invoice.findFirst({
       where: { id: parseInt(invoiceId), estateId }
     });
-    if (!invoice)
+    if (!invoice) {
       return res.status(404).json({ error: "Invoice not found" });
+    }
 
-    // Generate a unique receipt number for manual payments
-    const receiptNo = `MAN-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+    // ✅ NOW USE PHASE 4 FIFO ALLOCATION ✅
+    const result = await recordPaymentWithFIFO(
+      parseInt(invoiceId),
+      parseFloat(amountPaid),
+      paymentDate ? new Date(paymentDate) : new Date(),
+      method,
+      receiptNo,
+      notes || null,
+      estateId
+    );
 
-    const payment = await prisma.payment.create({
-      data: {
-        invoiceId:   parseInt(invoiceId),
-        estateId,
-        amountPaid:  parseFloat(amountPaid),
-        method,
-        paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
-        receiptNo,
-        notes:       notes || null
+    return res.status(201).json({
+      message: "Payment recorded successfully with FIFO allocation",
+      payment: {
+        id: result.payment.id,
+        amount: parseFloat(result.payment.amountPaid),
+        method: result.payment.method,
+        receiptNo: result.payment.receiptNo,
+        date: result.payment.paymentDate
+      },
+      allocations: result.allocations.map(a => ({
+        month: a.month,
+        allocated: a.allocated
+      })),
+      invoice: {
+        id: result.invoice.id,
+        status: result.invoice.status,
+        totalPaid: parseFloat(result.invoice.totalPaid),
+        totalOutstanding: parseFloat(result.invoice.totalOutstanding)
       }
     });
 
-    await reconcileInvoice(parseInt(invoiceId));
-
-    return res.status(201).json({ message: "Payment recorded", payment });
-
   } catch (err) {
-    if (err.message === "NO_ESTATE")
+    if (err.message === "NO_ESTATE") {
       return res.status(400).json({ error: "Your account is not linked to an estate" });
+    }
+    if (err.message.includes("not found")) {
+      return res.status(404).json({ error: err.message });
+    }
     console.error("Create payment error:", err);
-    return res.status(500).json({ error: "Server error" });
+    return res.status(500).json({ error: err.message || "Server error" });
   }
 };
 

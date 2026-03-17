@@ -1,4 +1,10 @@
+//invoice controller
 const prisma = require("../../prisma/client");
+const { 
+  recordPaymentWithFIFO, 
+  previewPaymentAllocation,
+  getPaymentHistory
+} = require("../utils/payment-allocation-utility");
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -487,6 +493,511 @@ const backfillInvoiceMonths = async (req, res) => {
   }
 };
 
+// invoiceController - PHASE 3 LATE FEE ADDITIONS
+// Add these functions to your existing invoiceController.js
+
+const { calculateLateFee, calculateDaysOverdue } = require("../utils/late-fees-utility");
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// POST /api/invoices/:invoiceId/apply-late-fees
+// Applies late fees to overdue invoice months
+// ═══════════════════════════════════════════════════════════════════════════════
+const applyLateFees = async (req, res) => {
+  const { invoiceId } = req.params;
+  const { appliedBy } = req.body;
+
+  if (!invoiceId) 
+    return res.status(400).json({ error: "invoiceId is required" });
+
+  try {
+    // Get user's estate
+    const user = await prisma.user.findUnique({
+      where:  { id: req.user.userId },
+      select: { estateId: true }
+    });
+    if (!user?.estateId) 
+      return res.status(400).json({ error: "User not linked to estate" });
+
+    // Get invoice with full details
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: parseInt(invoiceId), estateId: user.estateId },
+      include: {
+        monthlyCharges: { orderBy: { month: "asc" } },
+        lateFees: { where: { status: "ACTIVE" } }
+      }
+    });
+
+    if (!invoice)
+      return res.status(404).json({ error: "Invoice not found" });
+
+    // Get estate late fee config
+    const estate = await prisma.estate.findUnique({
+      where: { id: user.estateId },
+      select: {
+        lateFeeEnabled: true,
+        lateFeeType: true,
+        lateFeeValue: true,
+        lateFeeKickInAfterDays: true,
+        lateFeeCompounding: true,
+        lateFeeMaxCap: true
+      }
+    });
+
+    if (!estate.lateFeeEnabled)
+      return res.status(400).json({ error: "Late fees are not enabled for this estate" });
+
+    let feesApplied = [];
+
+    // Process each invoice month
+    await prisma.$transaction(async (tx) => {
+      for (const month of invoice.monthlyCharges) {
+        // Skip if already has an active late fee
+        const existingFee = await tx.lateFee.findFirst({
+          where: {
+            invoiceId: invoice.id,
+            monthAffected: month.month,
+            status: "ACTIVE"
+          }
+        });
+
+        if (existingFee) {
+          console.log(`Late fee already applied for ${month.month}`);
+          continue;
+        }
+
+        // Calculate days overdue
+        const daysOverdue = calculateDaysOverdue(month.dueDate);
+
+        // Calculate late fee
+        const feeAmount = calculateLateFee(
+          parseFloat(month.baseAmount),
+          daysOverdue,
+          estate
+        );
+
+        // Only create a LateFee record if fee amount > 0
+        if (feeAmount > 0) {
+          const lateFee = await tx.lateFee.create({
+            data: {
+              invoiceId: invoice.id,
+              estateId: user.estateId,
+              monthAffected: month.month,
+              daysOverdue,
+              baseAmount: parseFloat(month.baseAmount),
+              feeType: estate.lateFeeType,
+              feeValue: estate.lateFeeValue,
+              calculatedAmount: feeAmount,
+              appliedToBalance: parseFloat(month.baseAmount),
+              compoundingMethod: estate.lateFeeCompounding,
+              status: "ACTIVE",
+              appliedBy: appliedBy || "SYSTEM"
+            }
+          });
+
+          // Update InvoiceMonth with late fee
+          await tx.invoiceMonth.update({
+            where: { id: month.id },
+            data: {
+              lateFee: feeAmount,
+              lateFeeId: lateFee.id,
+              lateFeeAppliedDate: new Date(),
+              amountRemaining: parseFloat(month.baseAmount) + feeAmount - parseFloat(month.amountPaid || 0)
+            }
+          });
+
+          feesApplied.push({
+            monthAffected: month.month,
+            daysOverdue,
+            baseAmount: parseFloat(month.baseAmount),
+            feeAmount,
+            totalDue: parseFloat(month.baseAmount) + feeAmount
+          });
+        }
+      }
+
+      // Recalculate invoice totals
+      if (feesApplied.length > 0) {
+        const months = await tx.invoiceMonth.findMany({
+          where: { invoiceId: invoice.id }
+        });
+
+        const totalLateFees = months.reduce((s, m) => s + parseFloat(m.lateFee || 0), 0);
+        const newTotalDue = parseFloat(invoice.amount) + totalLateFees;
+        const outstanding = Math.max(0, newTotalDue - parseFloat(invoice.totalPaid || 0));
+
+        let newStatus = "PENDING";
+        if (parseFloat(invoice.totalPaid || 0) >= newTotalDue) newStatus = "PAID";
+        else if (parseFloat(invoice.totalPaid || 0) > 0) newStatus = "PARTIAL";
+        else if (daysOverdue > 0) newStatus = "OVERDUE";
+
+        await tx.invoice.update({
+          where: { id: invoice.id },
+          data: {
+            lateFee: totalLateFees,
+            totalOutstanding: outstanding,
+            status: newStatus,
+            daysOverdue: calculateDaysOverdue(invoice.dueDate)
+          }
+        });
+      }
+    });
+
+    // Fetch updated invoice
+    const updated = await prisma.invoice.findUnique({
+      where: { id: invoice.id },
+      include: {
+        monthlyCharges: { orderBy: { month: "asc" } },
+        lateFees: { where: { status: "ACTIVE" } }
+      }
+    });
+
+    return res.json({
+      message: `Applied ${feesApplied.length} late fee(s)`,
+      feesApplied,
+      invoice: updated
+    });
+  } catch (err) {
+    console.error("Apply late fees error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GET /api/invoices/:invoiceId/late-fees
+// Returns all late fees for an invoice
+// ═══════════════════════════════════════════════════════════════════════════════
+const getInvoiceLateFees = async (req, res) => {
+  const { invoiceId } = req.params;
+
+  if (!invoiceId)
+    return res.status(400).json({ error: "invoiceId is required" });
+
+  try {
+    const user = await prisma.user.findUnique({
+      where:  { id: req.user.userId },
+      select: { estateId: true }
+    });
+    if (!user?.estateId)
+      return res.status(400).json({ error: "User not linked to estate" });
+
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: parseInt(invoiceId), estateId: user.estateId }
+    });
+
+    if (!invoice) 
+      return res.status(404).json({ error: "Invoice not found" });
+
+    const lateFees = await prisma.lateFee.findMany({
+      where: { invoiceId: parseInt(invoiceId) },
+      orderBy: { monthAffected: "asc" }
+    });
+
+    return res.json({
+      invoiceId,
+      lateFees: lateFees.map(fee => ({
+        id: fee.id,
+        monthAffected: fee.monthAffected,
+        daysOverdue: fee.daysOverdue,
+        baseAmount: parseFloat(fee.baseAmount),
+        feeType: fee.feeType,
+        feeValue: fee.feeValue,
+        calculatedAmount: parseFloat(fee.calculatedAmount),
+        status: fee.status,
+        appliedDate: fee.appliedDate,
+        appliedBy: fee.appliedBy,
+        waivedDate: fee.waiveDate,
+        waivedReason: fee.waivedReason
+      }))
+    });
+  } catch (err) {
+    console.error("Get invoice late fees error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// POST /api/late-fees/:feeId/waive
+// Waives (removes) a late fee
+// ═══════════════════════════════════════════════════════════════════════════════
+const waveLateFee = async (req, res) => {
+  const { feeId } = req.params;
+  const { reason } = req.body;
+
+  if (!feeId)
+    return res.status(400).json({ error: "feeId is required" });
+
+  try {
+    const user = await prisma.user.findUnique({
+      where:  { id: req.user.userId },
+      select: { estateId: true }
+    });
+    if (!user?.estateId)
+      return res.status(400).json({ error: "User not linked to estate" });
+
+    const lateFee = await prisma.lateFee.findUnique({
+      where: { id: feeId },
+      include: { invoice: true }
+    });
+
+    if (!lateFee)
+      return res.status(404).json({ error: "Late fee not found" });
+
+    if (lateFee.estateId !== user.estateId)
+      return res.status(403).json({ error: "Not authorized" });
+
+    if (lateFee.status === "WAIVED")
+      return res.status(400).json({ error: "Late fee is already waived" });
+
+    // Waive the fee
+    await prisma.$transaction(async (tx) => {
+      await tx.lateFee.update({
+        where: { id: feeId },
+        data: {
+          status: "WAIVED",
+          waiveDate: new Date(),
+          waivedReason: reason || null
+        }
+      });
+
+      // Remove from invoice month
+      await tx.invoiceMonth.updateMany({
+        where: { lateFeeId: feeId },
+        data: {
+          lateFee: 0,
+          lateFeeId: null,
+          lateFeeAppliedDate: null
+        }
+      });
+
+      // Recalculate invoice totals
+      const months = await tx.invoiceMonth.findMany({
+        where: { invoiceId: lateFee.invoiceId }
+      });
+
+      const totalLateFees = months.reduce((s, m) => s + parseFloat(m.lateFee || 0), 0);
+      const newTotalDue = parseFloat(lateFee.invoice.amount) + totalLateFees;
+      const outstanding = Math.max(0, newTotalDue - parseFloat(lateFee.invoice.totalPaid || 0));
+
+      let newStatus = "PENDING";
+      if (parseFloat(lateFee.invoice.totalPaid || 0) >= newTotalDue) newStatus = "PAID";
+      else if (parseFloat(lateFee.invoice.totalPaid || 0) > 0) newStatus = "PARTIAL";
+
+      await tx.invoice.update({
+        where: { id: lateFee.invoiceId },
+        data: {
+          lateFee: totalLateFees,
+          totalOutstanding: outstanding,
+          status: newStatus
+        }
+      });
+    });
+
+    return res.json({ message: "Late fee waived successfully" });
+  } catch (err) {
+    console.error("Wave late fee error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+// invoiceController - PHASE 4 PAYMENT ADDITIONS
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// POST /api/invoices/:invoiceId/record-payment
+// Records a payment and allocates using FIFO
+// ═══════════════════════════════════════════════════════════════════════════════
+const recordPayment = async (req, res) => {
+  const { invoiceId } = req.params;
+  const { amountPaid, paymentDate, method, receiptNo, notes } = req.body;
+
+  // Validation
+  if (!invoiceId || !amountPaid || !paymentDate || !method || !receiptNo) {
+    return res.status(400).json({
+      error: "invoiceId, amountPaid, paymentDate, method, and receiptNo are required"
+    });
+  }
+
+  if (parseFloat(amountPaid) <= 0) {
+    return res.status(400).json({ error: "amountPaid must be greater than 0" });
+  }
+
+  if (!["CASH", "M-PESA", "BANK_TRANSFER", "CHEQUE", "OTHER"].includes(method)) {
+    return res.status(400).json({ error: "Invalid payment method" });
+  }
+
+  try {
+    // Get user's estate
+    const user = await prisma.user.findUnique({
+      where:  { id: req.user.userId },
+      select: { estateId: true }
+    });
+    if (!user?.estateId)
+      return res.status(400).json({ error: "User not linked to estate" });
+
+    // Record payment using FIFO
+    const result = await recordPaymentWithFIFO(
+      parseInt(invoiceId),
+      parseFloat(amountPaid),
+      new Date(paymentDate),
+      method,
+      receiptNo,
+      notes || null,
+      user.estateId
+    );
+
+    return res.status(201).json({
+      message: "Payment recorded successfully",
+      payment: {
+        id: result.payment.id,
+        amount: parseFloat(result.payment.amountPaid),
+        method: result.payment.method,
+        receiptNo: result.payment.receiptNo,
+        date: result.payment.paymentDate
+      },
+      allocations: result.allocations.map(a => ({
+        month: a.month,
+        allocated: a.allocated
+      })),
+      invoice: {
+        id: result.invoice.id,
+        status: result.invoice.status,
+        totalPaid: parseFloat(result.invoice.totalPaid),
+        totalOutstanding: parseFloat(result.invoice.totalOutstanding),
+        resident: result.invoice.resident.fullName,
+        unit: result.invoice.unit.unitNumber
+      },
+      unallocated: result.unallocated > 0 ? result.unallocated : null
+    });
+  } catch (err) {
+    console.error("Record payment error:", err);
+    if (err.message.includes("not found")) {
+      return res.status(404).json({ error: err.message });
+    }
+    return res.status(500).json({ error: err.message || "Server error" });
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// POST /api/invoices/:invoiceId/preview-payment
+// Preview payment allocation without recording
+// ═══════════════════════════════════════════════════════════════════════════════
+const previewPayment = async (req, res) => {
+  const { invoiceId } = req.params;
+  const { amountToPay } = req.body;
+
+  if (!invoiceId || !amountToPay) {
+    return res.status(400).json({
+      error: "invoiceId and amountToPay are required"
+    });
+  }
+
+  if (parseFloat(amountToPay) <= 0) {
+    return res.status(400).json({ error: "amountToPay must be greater than 0" });
+  }
+
+  try {
+    // Get user's estate
+    const user = await prisma.user.findUnique({
+      where:  { id: req.user.userId },
+      select: { estateId: true }
+    });
+    if (!user?.estateId)
+      return res.status(400).json({ error: "User not linked to estate" });
+
+    // Get invoice with monthly charges
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: parseInt(invoiceId), estateId: user.estateId },
+      include: {
+        monthlyCharges: { orderBy: { month: "asc" } },
+        resident: { select: { id: true, fullName: true } }
+      }
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: "Invoice not found" });
+    }
+
+    if (invoice.monthlyCharges.length === 0) {
+      return res.status(400).json({ error: "Invoice has no monthly breakdown" });
+    }
+
+    // Preview allocation
+    const preview = previewPaymentAllocation(
+      parseFloat(amountToPay),
+      invoice.monthlyCharges
+    );
+
+    return res.json({
+      preview: {
+        invoiceId,
+        resident: invoice.resident.fullName,
+        amountToPay: preview.totalToPay,
+        allocations: preview.allocations.map(a => ({
+          month: a.month,
+          baseAmount: a.baseAmount,
+          lateFee: a.lateFee,
+          currentlyPaid: a.alreadyPaid,
+          willAllocate: a.willAllocate,
+          willRemain: a.willRemain,
+          willBePaid: a.willBePaid,
+          willBeFullyPaid: a.willBePaid >= (a.baseAmount + a.lateFee)
+        })),
+        summary: {
+          monthsBeingPaid: preview.summary.monthsPaying,
+          totalAllocated: preview.summary.totalAllocated,
+          unallocated: preview.summary.unallocated
+        }
+      }
+    });
+  } catch (err) {
+    console.error("Preview payment error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GET /api/invoices/:invoiceId/payment-history
+// Get all payments and allocations for an invoice
+// ═══════════════════════════════════════════════════════════════════════════════
+const getInvoicePaymentHistory = async (req, res) => {
+  const { invoiceId } = req.params;
+
+  if (!invoiceId) {
+    return res.status(400).json({ error: "invoiceId is required" });
+  }
+
+  try {
+    // Get user's estate
+    const user = await prisma.user.findUnique({
+      where:  { id: req.user.userId },
+      select: { estateId: true }
+    });
+    if (!user?.estateId)
+      return res.status(400).json({ error: "User not linked to estate" });
+
+    // Verify invoice belongs to user's estate
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: parseInt(invoiceId), estateId: user.estateId }
+    });
+
+    if (!invoice) {
+      return res.status(404).json({ error: "Invoice not found" });
+    }
+
+    // Get payment history
+    const history = await getPaymentHistory(parseInt(invoiceId));
+
+    return res.json({
+      invoiceId,
+      payments: history
+    });
+  } catch (err) {
+    console.error("Get payment history error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+
+
 module.exports = {
   getInvoices,
   getOverdueInvoices,
@@ -496,5 +1007,11 @@ module.exports = {
   updateInvoice,
   deleteInvoice,
   generateMonthlyInvoices,
-  backfillInvoiceMonths
+  backfillInvoiceMonths,
+  applyLateFees,
+  getInvoiceLateFees,
+  waveLateFee,
+  recordPayment,
+  previewPayment,
+  getInvoicePaymentHistory
 };
