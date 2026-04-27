@@ -132,7 +132,7 @@ function renderInvoices(list) {
     const period      = months.length > 1
       ? `${months[0].month} → ${months[months.length - 1].month}`
       : monthLabel(inv.billingMonth, inv.billingYear);
-    const daysOverdue = calcDaysOverdue(inv.dueDate);
+    const daysOverdue = inv.status === "PAID" ? 0 : calcDaysOverdue(inv.dueDate);
 
     return `
       <tr class="clickable-row" onclick="viewInvoice(${inv.id})" style="cursor:pointer;">

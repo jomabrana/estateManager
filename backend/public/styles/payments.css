@@ -1,0 +1,31 @@
+/* payments.css */
+
+.payment-amount {
+  font-weight: 700;
+  color: var(--success, #22c55e);
+}
+
+.method-chip {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg-secondary, #f1f5f9);
+  color: var(--text-secondary, #475569);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.action-link {
+  color: var(--primary, #2563eb);
+  text-decoration: none;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.action-link:hover {
+  text-decoration: underline;
+}
+

@@ -367,10 +367,108 @@ const createPayment = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/payments/:id
+ * Fetch a single payment with full details including resident, unit, invoice, and allocations
+ */
+const getPaymentById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const paymentId = parseInt(id);
+ 
+        if (isNaN(paymentId)) {
+            return res.status(400).json({ error: 'Invalid payment ID' });
+        }
+ 
+        const payment = await prisma.payment.findUnique({
+            where: { id: paymentId },
+            include: {
+                invoice: {
+                    include: {
+                        resident: {
+                            include: {
+                                unit: true
+                            }
+                        },
+                        invoiceMonths: {
+                            orderBy: {
+                                month: 'asc'
+                            }
+                        }
+                    }
+                },
+                recordedBy: {
+                    select: {
+                        id: true,
+                        fullName: true,
+                        email: true
+                    }
+                }
+            }
+        });
+ 
+        if (!payment) {
+            return res.status(404).json({ error: 'Payment not found' });
+        }
+ 
+        return res.json(payment);
+ 
+    } catch (error) {
+        console.error('Error fetching payment:', error);
+        return res.status(500).json({ error: 'Failed to fetch payment details' });
+    }
+};
+ 
+/**
+ * GET /api/payments/:id/allocations
+ * Get payment allocation breakdown by month (for FIFO display)
+ */
+const getPaymentAllocations = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const paymentId = parseInt(id);
+
+        // Fetch the payment AND the specific allocations created for it
+        const payment = await prisma.payment.findUnique({
+            where: { id: paymentId },
+            include: {
+                // Assuming you have a PaymentAllocation table as seen in your utility
+                allocations: { 
+                    orderBy: { month: 'asc' } 
+                },
+                invoice: {
+                    include: { invoiceMonths: true }
+                }
+            }
+        });
+
+        if (!payment) return res.status(404).json({ error: 'Payment not found' });
+
+        // Map the data so the frontend sees the "snapshot" of what this payment did
+        const breakdown = payment.allocations.map(alloc => {
+            const monthData = payment.invoice.invoiceMonths.find(m => m.month === alloc.month);
+            return {
+                month: alloc.month,
+                allocatedAmount: parseFloat(alloc.allocatedAmount),
+                // Show the state of the month AFTER this payment
+                currentStatus: monthData?.status || 'PAID',
+                remainingOnMonth: monthData?.amountRemaining || 0
+            };
+        });
+
+        return res.json(breakdown);
+    } catch (error) {
+        console.error('Error:', error);
+        return res.status(500).json({ error: 'Failed to fetch breakdown' });
+    }
+};
+
 module.exports = {
   registerUrls,
   validatePayment,
   confirmPayment,
   getPayments,
-  createPayment
+  createPayment,
+  getPaymentById,
+  getPaymentAllocations
 };

@@ -1,4 +1,5 @@
 const prisma = require("../../prisma/client");
+const { sendCommunication } = require("../services/communicationSender");
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // COMMUNICATION LOG CONTROLLER
@@ -79,12 +80,27 @@ const sendManualCommunication = async (req, res) => {
         recipient,
         channel: type,
         sentBy: `ADMIN_${user.id}`,
-        status: 'SENT',
-        sentAt: new Date()
+        status: 'QUEUED'
       }
     });
 
-    return res.status(201).json({ message: "Communication sent", communication: comm });
+    try {
+      await sendCommunication(comm);
+      const updated = await prisma.communicationLog.update({
+        where: { id: comm.id },
+        data: { status: "SENT", failureReason: null, sentAt: new Date() }
+      });
+      return res.status(201).json({ message: "Communication sent", communication: updated });
+    } catch (sendErr) {
+      const updated = await prisma.communicationLog.update({
+        where: { id: comm.id },
+        data: { status: "FAILED", failureReason: String(sendErr.message || sendErr) }
+      });
+      return res.status(201).json({
+        message: "Communication queued but failed to send",
+        communication: updated
+      });
+    }
   } catch (err) {
     console.error('Send communication error:', err);
     return res.status(500).json({ error: 'Server error' });
@@ -130,10 +146,78 @@ const retryCommunication = async (req, res) => {
       }
     });
 
-    return res.json({ message: "Communication queued for retry", communication: comm });
+    try {
+      await sendCommunication(comm);
+      const updated = await prisma.communicationLog.update({
+        where: { id: comm.id },
+        data: { status: "SENT", failureReason: null, sentAt: new Date() }
+      });
+      return res.json({ message: "Communication sent", communication: updated });
+    } catch (sendErr) {
+      const updated = await prisma.communicationLog.update({
+        where: { id: comm.id },
+        data: { status: "FAILED", failureReason: String(sendErr.message || sendErr) }
+      });
+      return res.json({ message: "Retry failed", communication: updated });
+    }
   } catch (err) {
     console.error('Retry communication error:', err);
     return res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// GET: Residents with invoice status + total owing (for communications targeting)
+// GET /api/communications/residents-summary
+const getResidentsSummary = async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { estateId: true }
+    });
+    if (!user?.estateId) return res.status(400).json({ error: "No estate linked" });
+
+    const residents = await prisma.resident.findMany({
+      where: { unit: { estateId: user.estateId }, isActive: true },
+      select: {
+        id: true,
+        fullName: true,
+        emails: true,
+        phones: true,
+        unit: { select: { unitNumber: true } },
+        invoices: {
+          select: { status: true, totalOutstanding: true, daysOverdue: true },
+          where: { estateId: user.estateId }
+        }
+      },
+      orderBy: [{ unit: { unitNumber: "asc" } }, { fullName: "asc" }]
+    });
+
+    const summary = residents.map(r => {
+      const invoices = r.invoices || [];
+      const totalOwing = invoices.reduce((sum, inv) => sum + parseFloat(inv.totalOutstanding || 0), 0);
+
+      let invoiceStatus = "PAID";
+      if (totalOwing > 0) {
+        const anyOverdue = invoices.some(inv => inv.status === "OVERDUE" || (inv.daysOverdue || 0) > 0);
+        const anyPartial = invoices.some(inv => inv.status === "PARTIAL");
+        invoiceStatus = anyOverdue ? "OVERDUE" : anyPartial ? "PARTIAL" : "PENDING";
+      }
+
+      return {
+        id: r.id,
+        fullName: r.fullName,
+        unitNumber: r.unit?.unitNumber || null,
+        emails: r.emails || [],
+        phones: r.phones || [],
+        totalOwing,
+        invoiceStatus
+      };
+    });
+
+    return res.json({ residents: summary });
+  } catch (err) {
+    console.error("Get residents summary error:", err);
+    return res.status(500).json({ error: "Server error" });
   }
 };
 
@@ -142,5 +226,6 @@ module.exports = {
   getCommunicationHistory,
   sendManualCommunication,
   getCommunicationQueue,
-  retryCommunication
+  retryCommunication,
+  getResidentsSummary
 };

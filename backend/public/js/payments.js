@@ -4,61 +4,61 @@
 /**
  * Load and display all payments for the estate
  * Called by: Payments list page on load
- */
+ * */
+ 
 async function loadPayments() {
-  const tbody = document.getElementById('payments-tbody');
+  const tbody = document.getElementById("payments-tbody");
   if (!tbody) {
-    console.warn('⚠️  payments-tbody element not found');
+    console.warn("payments-tbody element not found");
     return;
   }
 
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">Loading...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" class="table-loading">Loading payments...</td></tr>';
 
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
     
-    console.log('📥 Fetching all payments...');
-    const response = await fetch('/api/payments', {
+    const response = await fetch("/api/payments", {
       headers: { Authorization: `Bearer ${token}` }
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${response.status}`);
     }
 
     const data = await response.json();
     const payments = data.payments || [];
 
-    console.log(`✅ Loaded ${payments.length} payments`);
+    const countEl = document.getElementById("pay-count");
+    if (countEl) countEl.textContent = `${payments.length} payment${payments.length !== 1 ? "s" : ""}`;
 
     if (payments.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">No payments recorded yet. <a href="/?page=payments&action=add" style="color:#2563eb;text-decoration:underline;">Record a payment</a></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="table-empty">No payments recorded yet</td></tr>';
       return;
     }
 
-    let html = '';
+    let html = "";
     payments.forEach(payment => {
-      const resident = payment.invoice?.resident?.fullName || 'Unknown';
-      const unit = payment.invoice?.unit?.unitNumber || 'N/A';
+      const resident = payment.invoice?.resident?.fullName || "—";
+      const unit = payment.invoice?.unit?.unitNumber || "—";
       const amount = parseFloat(payment.amountPaid) || 0;
-      const method = payment.method || 'Unknown';
-      const date = new Date(payment.paymentDate).toLocaleDateString('en-KE');
-      const invoiceStatus = payment.invoice?.status || 'Unknown';
-      const receiptNo = payment.receiptNo || '—';
+      const method = payment.method || "—";
+      const date = payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString("en-KE") : "—";
+      const invoiceStatus = payment.invoice?.status || "—";
 
-      const statusColor = invoiceStatus === 'PAID' ? '#22c55e' : invoiceStatus === 'PARTIAL' ? '#f59e0b' : '#ef4444';
-      const statusIcon = invoiceStatus === 'PAID' ? '✅' : invoiceStatus === 'PARTIAL' ? '⚠️' : '❌';
+      const statusBadge = invoiceStatusBadge(invoiceStatus);
 
       html += `
         <tr>
           <td>${resident}</td>
           <td>${unit}</td>
-          <td style="font-weight:600;color:#22c55e;">KES ${amount.toLocaleString()}</td>
-          <td>${method}</td>
+          <td class="payment-amount">${formatKES(amount)}</td>
+          <td><span class="method-chip">${escapeHtml(method)}</span></td>
           <td>${date}</td>
-          <td style="color:${statusColor};font-weight:600;">${statusIcon} ${invoiceStatus}</td>
+          <td>${statusBadge}</td>
           <td>
-            <a href="/?page=invoice&id=${payment.invoiceId}" class="action-link" title="View invoice">
+            <a href="/invoice-detail.html?id=${payment.invoiceId}" class="action-link" title="View invoice">
               <i class="ph ph-eye"></i> View
             </a>
           </td>
@@ -69,8 +69,8 @@ async function loadPayments() {
     tbody.innerHTML = html;
 
   } catch (err) {
-    console.error('❌ Error loading payments:', err);
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#ef4444;padding:40px;">Error loading payments: ${err.message}</td></tr>`;
+    console.error("Error loading payments:", err);
+    tbody.innerHTML = `<tr><td colspan="7" class="table-loading" style="color:var(--danger)">${escapeHtml(err.message)}</td></tr>`;
     
     if (typeof showNotification === 'function') {
       showNotification(`Error loading payments: ${err.message}`, 'error');
@@ -78,11 +78,11 @@ async function loadPayments() {
   }
 }
 
-/**
- * Preview payment allocation
- * @param {number} invoiceId - Invoice ID
- * @param {number} amountToPay - Amount to preview
- */
+
+ // Preview payment allocation
+// @param {number} invoiceId - Invoice ID
+// @param {number} amountToPay - Amount to preview
+
 async function previewPaymentAllocation(invoiceId, amountToPay) {
   if (!invoiceId || !amountToPay || parseFloat(amountToPay) <= 0) {
     alert("Please enter a valid invoice and amount");
@@ -111,10 +111,10 @@ async function previewPaymentAllocation(invoiceId, amountToPay) {
   }
 }
 
-/**
- * Display payment allocation preview
- * @param {Object} preview - Preview data from API
- */
+
+ // Display payment allocation preview
+ // @param {Object} preview - Preview data from API
+ 
 function displayAllocationPreview(preview) {
   const container = document.getElementById("allocation-preview");
   if (!container) return;
@@ -124,7 +124,7 @@ function displayAllocationPreview(preview) {
       <h4>Payment Allocation Preview (FIFO)</h4>
       <div class="preview-info">
         <p><strong>Resident:</strong> ${preview.resident}</p>
-        <p><strong>Amount to Pay:</strong> KES ${parseInt(preview.amountToPay).toLocaleString()}</p>
+        <p><strong>Amount to Pay:</strong> ${formatKES(preview.amountToPay)}</p>
       </div>
       
       <table class="preview-table">
@@ -143,18 +143,18 @@ function displayAllocationPreview(preview) {
   `;
 
   for (const alloc of preview.allocations) {
-    const status = alloc.willBeFullyPaid ? "✅ PAID" : "⚠️ PARTIAL";
-    const statusColor = alloc.willBeFullyPaid ? "#22c55e" : "#f59e0b";
+    const status = alloc.willBeFullyPaid ? "PAID" : "PARTIAL";
+    const statusClass = alloc.willBeFullyPaid ? "badge-success" : "badge-warning";
 
     html += `
       <tr>
         <td><strong>${alloc.month}</strong></td>
-        <td>KES ${parseInt(alloc.baseAmount).toLocaleString()}</td>
-        <td>KES ${parseInt(alloc.lateFee).toLocaleString()}</td>
-        <td>KES ${parseInt(alloc.currentlyPaid).toLocaleString()}</td>
-        <td style="color:#2563eb;font-weight:600;">KES ${parseInt(alloc.willAllocate).toLocaleString()}</td>
-        <td style="font-weight:600;">KES ${parseInt(alloc.willBePaid).toLocaleString()}</td>
-        <td style="color:${statusColor};">${status}</td>
+        <td>${formatKES(alloc.baseAmount)}</td>
+        <td>${formatKES(alloc.lateFee)}</td>
+        <td>${formatKES(alloc.currentlyPaid)}</td>
+        <td style="color:var(--primary);font-weight:700;">${formatKES(alloc.willAllocate)}</td>
+        <td style="font-weight:700;">${formatKES(alloc.willBePaid)}</td>
+        <td><span class="badge ${statusClass}">${status}</span></td>
       </tr>
     `;
   }
@@ -165,11 +165,11 @@ function displayAllocationPreview(preview) {
       
       <div class="preview-summary">
         <p><strong>Months Being Paid:</strong> ${preview.summary.monthsBeingPaid}</p>
-        <p><strong>Total Allocated:</strong> KES ${parseInt(preview.summary.totalAllocated).toLocaleString()}</p>
+        <p><strong>Total Allocated:</strong> ${formatKES(preview.summary.totalAllocated)}</p>
   `;
 
   if (preview.summary.unallocated > 0) {
-    html += `<p style="color:#ef4444;"><strong>⚠️ Unallocated:</strong> KES ${parseInt(preview.summary.unallocated).toLocaleString()}</p>`;
+    html += `<p style="color:var(--danger);"><strong>Unallocated:</strong> ${formatKES(preview.summary.unallocated)}</p>`;
   }
 
   html += `</div></div>`;
@@ -178,10 +178,10 @@ function displayAllocationPreview(preview) {
   container.style.display = "block";
 }
 
-/**
- * Record a payment
- * @param {number} invoiceId - Invoice ID
- */
+
+ // Record a payment
+ // @param {number} invoiceId - Invoice ID
+
 async function recordPayment(invoiceId) {
   const amountPaid = document.getElementById("pay-amount")?.value;
   const paymentDate = document.getElementById("pay-date")?.value;
@@ -219,7 +219,7 @@ async function recordPayment(invoiceId) {
     }
 
     const data = await response.json();
-    alert(`✅ ${data.message}\n\nInvoice Status: ${data.invoice.status}\nRemaining: KES ${parseInt(data.invoice.totalOutstanding).toLocaleString()}`);
+    alert(`${data.message}\n\nInvoice Status: ${data.invoice.status}\nRemaining: ${formatKES(data.invoice.totalOutstanding)}`);
 
     // Clear form
     document.getElementById("pay-amount").value = "";
@@ -236,20 +236,23 @@ async function recordPayment(invoiceId) {
   }
 }
 
-/**
- * Load and display payment history for an invoice
- * @param {number} invoiceId - Invoice ID
- */
+
+// Load and display payment history for an invoice
+ // @param {number} invoiceId - Invoice ID
+ 
 async function loadPaymentHistory(invoiceId) {
   const container = document.getElementById("payment-history-section");
   if (!container) return;
 
   try {
-    const response = await fetch(`/api/invoices/${invoiceId}/payment-history`);
+    const token = localStorage.getItem("token");
+    const response = await fetch(`/api/invoices/${invoiceId}/payment-history`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
 
     if (!response.ok) {
-      console.error("Error loading payment history");
-      return;
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${response.status}`);
     }
 
     const data = await response.json();
@@ -257,8 +260,13 @@ async function loadPaymentHistory(invoiceId) {
 
     if (payments.length === 0) {
       container.innerHTML = "<p style='color:#94a3b8;'>No payments recorded yet</p>";
+      const countEl = document.getElementById("payment-count");
+      if (countEl) countEl.textContent = "0 payments";
       return;
     }
+
+    const countEl = document.getElementById("payment-count");
+    if (countEl) countEl.textContent = `${payments.length} payment${payments.length !== 1 ? "s" : ""}`;
 
     let html = `
       <div class="payment-history">
@@ -286,7 +294,7 @@ async function loadPaymentHistory(invoiceId) {
       html += `
         <tr>
           <td>${payDate}</td>
-          <td style="font-weight:600;color:#22c55e;">KES ${parseInt(payment.amount).toLocaleString()}</td>
+          <td style="font-weight:700;color:var(--success);">${formatKES(payment.amount)}</td>
           <td>${payment.method}</td>
           <td style="font-family:monospace;font-size:0.85rem;">${payment.receiptNo}</td>
           <td style="font-size:0.85rem;">${allocText}</td>
@@ -304,9 +312,10 @@ async function loadPaymentHistory(invoiceId) {
     container.innerHTML = html;
   } catch (err) {
     console.error("Load payment history error:", err);
-    container.innerHTML = "<p style='color:#ef4444;'>Error loading payment history</p>";
+    container.innerHTML = `<p style='color:var(--danger);'>Error loading payment history: ${escapeHtml(err.message)}</p>`;
   }
 }
+
 
 // Export functions
 if (typeof module !== "undefined" && module.exports) {
@@ -317,4 +326,36 @@ if (typeof module !== "undefined" && module.exports) {
     recordPayment,
     loadPaymentHistory
   };
+}
+
+function invoiceStatusBadge(status) {
+  const normalized = (status || "").toUpperCase();
+  const cls = {
+    PAID: "badge-success",
+    PARTIAL: "badge-info",
+    PENDING: "badge-warning",
+    OVERDUE: "badge-danger"
+  }[normalized] || "badge-warning";
+
+  const text = normalized
+    ? normalized.charAt(0) + normalized.slice(1).toLowerCase()
+    : "Unknown";
+  return `<span class="badge ${cls}">${text}</span>`;
+}
+
+function formatKES(amount) {
+  return new Intl.NumberFormat("en-KE", {
+    style: "currency",
+    currency: "KES",
+    minimumFractionDigits: 0
+  }).format(parseFloat(amount) || 0);
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }

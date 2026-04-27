@@ -47,6 +47,7 @@ async function loadInvoice() {
     await loadPaymentHistory(_invoiceId);
 
     document.getElementById("inv-loading").style.display = "none";
+    
     document.getElementById("inv-content").style.display = "block";
   } catch (err) {
     document.getElementById("inv-loading").innerHTML =
@@ -72,7 +73,7 @@ function renderInvoice(inv) {
   document.getElementById("d-ref").textContent     = inv.referenceNo;
   document.getElementById("d-period").textContent  = monthLabel(inv.billingMonth, inv.billingYear);
   document.getElementById("d-created").textContent = formatDate(inv.invoiceDate || inv.createdAt);
-  document.getElementById("d-due").innerHTML       = dueDateDisplay(inv.dueDate);
+  document.getElementById("d-due").innerHTML = dueDateDisplay(inv.dueDate, inv.status);
   document.getElementById("d-notes").textContent   = inv.notes || "—";
 
   document.getElementById("d-resident").textContent = inv.resident?.fullName || "—";
@@ -115,13 +116,16 @@ function renderMonthlyBreakdown(months) {
     const totalDue    = base + lateFee;
     const daysOverdue = calcDaysOverdue(m.dueDate);
 
+    // FIX: Ensure color matches the logic. If PAID, use success regardless of date.
     const statusCls = {
       PAID:    "badge-success",
       PARTIAL: "badge-info",
-      UNPAID:  daysOverdue > 0 ? "badge-danger" : "badge-warning"
+      UNPAID:  (daysOverdue > 0) ? "badge-danger" : "badge-warning"
     }[m.status] || "badge-warning";
 
-    const statusText = m.status === "UNPAID" && daysOverdue > 0 ? "Overdue" : m.status.charAt(0) + m.status.slice(1).toLowerCase();
+    const statusText = (m.status !== "PAID" && daysOverdue > 0) 
+      ? "Overdue" 
+      : m.status.charAt(0) + m.status.slice(1).toLowerCase();
 
     return `
       <tr>
@@ -131,10 +135,10 @@ function renderMonthlyBreakdown(months) {
         <td>${formatKES(totalDue)}</td>
         <td class="text-success">${paid > 0 ? formatKES(paid) : "—"}</td>
         <td class="${remaining > 0 ? "text-danger" : "text-success"}"><strong>${formatKES(remaining)}</strong></td>
-        <td>${dueDateDisplay(m.dueDate)}</td>
+        <td>${dueDateDisplay(m.dueDate, m.status)}</td>
         <td><span class="badge ${statusCls}">${statusText}</span></td>
       </tr>`;
-  }).join("");
+}).join("");
 }
 
 // ── PHASE 4: Preview Payment Allocation UI ────────────────────────────────────
@@ -301,15 +305,22 @@ function calcDaysOverdue(dueDateStr) {
   return Math.max(0, Math.floor((todayDay - dueDay) / 86400000));
 }
 
-function dueDateDisplay(dueDateStr) {
+function dueDateDisplay(dueDateStr, status) {
   if (!dueDateStr) return "—";
+  
+  const str = formatDate(dueDateStr);
+  
+  // If already PAID, just show the date plainly without warnings
+  if (status === "PAID") {
+    return str; 
+  }
+
   const datePart  = dueDateStr.split("T")[0];
   const [y, m, d] = datePart.split("-").map(Number);
   const dueDay    = new Date(y, m - 1, d);
   const today     = new Date();
   const todayDay  = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const diff      = Math.floor((todayDay - dueDay) / 86400000);
-  const str       = formatDate(dueDateStr);
 
   if (diff > 0)  return `<span style="color:var(--danger)">${str} <small>(${diff}d overdue)</small></span>`;
   if (diff === 0) return `<span style="color:var(--warning)">${str} <small>(due today)</small></span>`;

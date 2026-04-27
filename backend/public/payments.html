@@ -1,113 +1,35 @@
-<!-- payments.html - All Payments List Page -->
-<div class="page-container">
-  <header class="page-header">
-    <div class="header-left">
-      <h1 class="page-title"><i class="ph ph-hand-coins"></i> Payments</h1>
-      <p class="page-subtitle">All payments recorded for the estate</p>
-    </div>
-    <div class="header-right">
-      <a href="/?page=add-payment" class="btn btn-primary">
-        <i class="ph ph-plus"></i> Record Payment
-      </a>
-    </div>
-  </header>
+<!-- public/payments.html — SPA partial, no html/head/body tags -->
+<link rel="stylesheet" href="/styles/payments.css">
 
-  <div class="card">
-    <div class="card-header">
-      <h2 class="card-title">Payment History</h2>
-      <p class="card-subtitle">Last 30 days</p>
-    </div>
-    
-    <div class="table-responsive">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Resident</th>
-            <th>Unit</th>
-            <th>Amount</th>
-            <th>Method</th>
-            <th>Date</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="payments-tbody">
-          <tr>
-            <td colspan="7" style="text-align: center; padding: 40px;">
-              <i class="ph ph-spinner"></i> Loading...
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+<div class="page-actions">
+  <button class="btn btn-primary" onclick="window.location.href='/add-payment.html'">
+    <i class="ph ph-plus"></i> Record Payment
+  </button>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">Payments</h2>
+    <span class="resident-count" id="pay-count">—</span>
+  </div>
+
+  <div class="table-responsive">
+    <table>
+      <thead>
+        <tr>
+          <th>Resident</th>
+          <th>Unit</th>
+          <th>Amount</th>
+          <th>Method</th>
+          <th>Date</th>
+          <th>Invoice Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="payments-tbody">
+        <tr><td colspan="7" class="table-loading">Loading payments...</td></tr>
+      </tbody>
+    </table>
   </div>
 </div>
 
-<script>
-// Load payments when this page is shown
-console.log('✅ Payments page loaded');
-
-// Call the function when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    loadAllPayments();
-  });
-} else {
-  // DOM already loaded
-  loadAllPayments();
-}
-</script>
-
-<style>
-.page-container {
-  animation: fadeIn 0.3s ease-in;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.action-link {
-  color: #2563eb;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: background 0.2s;
-}
-
-.action-link:hover {
-  background: #eff6ff;
-  text-decoration: underline;
-}
-
-.data-table tbody tr:hover {
-  background: #f8fafc;
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.status-paid {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.status-partial {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.status-pending {
-  background: #fee2e2;
-  color: #991b1b;
-}
-</style>

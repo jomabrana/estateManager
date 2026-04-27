@@ -10,25 +10,13 @@ const {
 
 const { createUnit, getUnits, getUnit, updateUnit, deleteUnit } = require("../controllers/unitController");
 const { createTenant, getTenants, getTenant, updateTenant, deleteTenant } = require("../controllers/tenantController");
-const { registerUrls, validatePayment, confirmPayment, getPayments, createPayment } = require("../controllers/paymentController");
+const { registerUrls, validatePayment, confirmPayment, getPayments, createPayment,getPaymentById ,getPaymentAllocations  } = require("../controllers/paymentController");
 const {
-  getInvoices,
-  getOverdueInvoices,
-  getInvoicesByResident,
-  getInvoice,
-  createInvoice,
-  updateInvoice,
-  deleteInvoice,
-  generateMonthlyInvoices,
-  backfillInvoiceMonths,
-  applyLateFees,            // Phase 3
-  getInvoiceLateFees,       // Phase 3
-  waveLateFee,              // Phase 3
-  recordPayment,            // Phase 4
-  previewPayment,           // Phase 4
-  getInvoicePaymentHistory  // Phase 4
+  getInvoices,  getOverdueInvoices,  getInvoicesByResident,  getInvoice,  createInvoice,  updateInvoice,  deleteInvoice,  generateMonthlyInvoices,  backfillInvoiceMonths,
+  applyLateFees,            getInvoiceLateFees,         waveLateFee,              // Phase 3
+  recordPayment,              previewPayment,             getInvoicePaymentHistory  // Phase 4
 } = require("../controllers/invoiceController");
-const { getCommunications, getCommunicationHistory, sendManualCommunication, getCommunicationQueue, retryCommunication } = require('../controllers/communicationLogController');
+const { getCommunications, getCommunicationHistory, sendManualCommunication, getCommunicationQueue, retryCommunication, getResidentsSummary } = require('../controllers/communicationLogController');
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ESTATE
@@ -64,10 +52,18 @@ router.delete("/tenants/:id", protect, deleteTenant);
 router.get("/payments",                protect, getPayments);
 router.post("/payments",               protect, createPayment);
 router.post("/payments/register-urls", protect, registerUrls);
+// GET single payment with full details
+router.get('/payments/:id', protect, getPaymentById);
+ 
+// GET payment allocation breakdown
+router.get('/payments/:id/allocations', protect, getPaymentAllocations);
+ 
 
 // M-PESA callbacks — NO protect middleware (Safaricom calls these directly)
 router.post("/payments/validate", validatePayment);
 router.post("/payments/confirm",  confirmPayment);
+
+
 
 // ── INVOICES ──────────────────────────────────────────────────
 // CRITICAL: all static routes MUST come before /:id
@@ -94,6 +90,9 @@ router.get("/invoices/:invoiceId/payment-history", protect, getInvoicePaymentHis
 // ═══════════════════════════════════════════════════════════════════════════════
 // COMMUNICATIONS
 // ═══════════════════════════════════════════════════════════════════════════════
+// GET: Residents with invoice status + total owing (for targeting)
+router.get("/communications/residents-summary", protect, getResidentsSummary);
+
 // GET: List all communications
 router.get("/communications", protect, getCommunications);
 

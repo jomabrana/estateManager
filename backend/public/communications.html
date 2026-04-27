@@ -6,22 +6,24 @@
 
 <div class="card">
     <div class="card-header">
-        <h2 class="card-title">Communication Logs</h2>
+        <h2 class="card-title">Residents</h2>
+        <span class="resident-count" id="comm-count">—</span>
     </div>
     <div class="table-responsive">
         <table>
             <thead>
                 <tr>
                     <th>Resident</th>
-                    <th>Subject</th>
-                    <th>Type</th>
-                    <th>Date</th>
-                    <th>Notes</th>
-                    <th>Actions</th>
+                    <th>Unit</th>
+                    <th>Invoice Status</th>
+                    <th>Total Owing</th>
+                    <th>Emails</th>
+                    <th>Phones</th>
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody id="communications-tbody">
-                <tr><td colspan="6" style="text-align: center; padding: 40px;">Loading...</td></tr>
+                <tr><td colspan="7" class="table-loading">Loading...</td></tr>
             </tbody>
         </table>
     </div>
@@ -46,6 +48,11 @@
                     <option value="VISIT">In-Person Visit</option>
                     <option value="CALL">Phone Call</option>
                 </select>
+            </div>
+            <div class="form-group">
+                <label>Recipient *</label>
+                <input type="email" id="comm-recipient" required placeholder="resident@example.com">
+                <p class="text-muted" style="margin:8px 0 0;font-size:0.85rem;">For Email, use one of the resident emails.</p>
             </div>
             <div class="form-group">
                 <label>Subject *</label>

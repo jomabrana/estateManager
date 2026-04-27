@@ -150,7 +150,7 @@ async function loadPage(pageName) {
 
     const pageNames = {
       residents: 'Residents & Units', invoices: 'Invoices',
-      payments: 'Payments', collections: 'Collections',
+      payments: 'Payments',
       reports: 'Reports', communications: 'Communications',
       estate: 'Estate Settings'
     };
@@ -228,6 +228,29 @@ function updatePageTitle(title, subtitle) {
     .catch(() => {});
 }
 
+// ═══════════════════════════════════════════════════════════════
+// MODALS (global)
+// ═══════════════════════════════════════════════════════════════
+
+function openModal(id) {
+  const modal = document.getElementById(id);
+  if (!modal) return;
+  modal.classList.add("show");
+}
+
+function closeModal(id) {
+  const modal = document.getElementById(id);
+  if (!modal) return;
+  modal.classList.remove("show");
+}
+
+// Close modal when clicking outside content
+document.addEventListener("click", (e) => {
+  const target = e.target;
+  if (!(target instanceof Element)) return;
+  if (target.classList.contains("modal")) target.classList.remove("show");
+});
+
 function updateDateTime() {
   const now = new Date();
   const pad = n => String(n).padStart(2, '0');
@@ -268,7 +291,7 @@ function getDashboardHTML() {
         <button class="btn btn-primary" onclick="loadPage('residents')"><i class="ph ph-user-plus"></i> Manage Residents</button>
         <button class="btn btn-primary" onclick="loadPage('invoices')"><i class="ph ph-stack"></i> Generate Invoice</button>
         <button class="btn btn-primary" onclick="loadPage('payments')"><i class="ph ph-currency-circle-dollar"></i> Record Payment</button>
-        <button class="btn btn-primary" onclick="loadPage('collections')"><i class="ph ph-warning-circle"></i> View Overdue</button>
+        <button class="btn btn-primary" onclick="loadPage('invoices')"><i class="ph ph-warning-circle"></i> View Overdue</button>
         <button class="btn btn-secondary" onclick="loadPage('reports')"><i class="ph ph-export"></i> Export Report</button>
       </div>
     </div>
@@ -289,7 +312,7 @@ function getDashboardHTML() {
     <div class="card">
       <div class="card-header">
         <h2 class="card-title">Overdue Balances</h2>
-        <a href="#" onclick="loadPage('collections'); return false;" style="color:var(--primary);text-decoration:none;font-weight:600;">View All</a>
+        <a href="#" onclick="loadPage('invoices'); return false;" style="color:var(--primary);text-decoration:none;font-weight:600;">View All</a>
       </div>
       <div class="table-responsive">
         <table>
@@ -350,8 +373,8 @@ function renderRecentPayments(payments) {
 
   tbody.innerHTML = payments.slice(0, 5).map(p => `
     <tr>
-      <td>${p.residentName || 'N/A'}</td>
-      <td>${p.unitNumber || 'N/A'}</td>
+      <td>${p.invoice?.resident?.fullName || 'Unknown'}</td>  
+      <td>${p.invoice?.unit?.unitNumber || 'N/A'}</td>        
       <td>${formatCurrency(p.amountPaid || p.amount || 0)}</td>
       <td>${p.method || p.paymentMethod || 'N/A'}</td>
       <td>${formatDate(p.paymentDate)}</td>
@@ -376,8 +399,8 @@ function renderOverdueInvoices(invoices) {
     const days = Math.max(0, Math.floor((now - new Date(inv.dueDate)) / 86400000));
     return `
       <tr>
-        <td>${inv.residentName || 'N/A'}</td>
-        <td>${inv.unitNumber || 'N/A'}</td>
+        <td>${inv.resident?.fullName || 'Unknown'}</td>     
+        <td>${inv.unit?.unitNumber || 'N/A'}</td>           
         <td>${formatCurrency(inv.amount || 0)}</td>
         <td>${days}</td>
         <td><span class="badge badge-danger">Overdue</span></td>

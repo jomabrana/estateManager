@@ -489,6 +489,11 @@ td { padding: 16px 12px; border-bottom: 1px solid var(--border-color); }
 tbody tr:hover { background-color: var(--body-bg); }
 .view-all { color: var(--primary); text-decoration: none; font-size: 0.875rem; font-weight: 600; }
 
+/* ── Common text helpers ── */
+.text-success { color: var(--success, #22c55e); }
+.text-danger  { color: var(--danger, #ef4444); }
+.text-muted   { color: var(--text-muted, #94a3b8); }
+
 /* ═══════════════════════════════════════════════════════════════ */
 /* BADGES */
 /* ═══════════════════════════════════════════════════════════════ */
@@ -536,6 +541,51 @@ tbody tr:hover { background-color: var(--body-bg); }
     font-family: inherit;
     font-size: 0.9rem;
     transition: border-color 0.2s;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* MODALS */
+/* ═══════════════════════════════════════════════════════════════ */
+
+.modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.55);
+    padding: 24px;
+}
+
+.modal.show {
+    display: flex;
+}
+
+.modal-content {
+    width: min(720px, 100%);
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 24px 60px rgba(2, 6, 23, 0.25);
+    overflow: hidden;
+}
+
+.modal-header {
+    padding: 16px 20px;
+    font-weight: 800;
+    color: var(--text-main);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-content form {
+    padding: 16px 20px 20px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 16px;
 }
 
 .form-group input:focus,
