@@ -72,14 +72,8 @@
   </div>
 </div>
 
-<!-- Standard search + filters -->
+<!-- Filter Tabs -->
 <div class="invoice-toolbar">
-  <input
-    type="text"
-    id="inv-search"
-    placeholder="Search by resident, unit, reference..."
-    oninput="filterInvoices(this.value)"
-  >
   <div class="filter-tabs" id="inv-filter-tabs">
     <button class="filter-tab active" data-status="ALL"      onclick="setStatusFilter('ALL',this)">All</button>
     <button class="filter-tab"        data-status="PENDING"  onclick="setStatusFilter('PENDING',this)">Pending</button>

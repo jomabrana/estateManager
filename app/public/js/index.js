@@ -298,6 +298,26 @@ function getDashboardHTML() {
 
     <div class="card">
       <div class="card-header">
+        <h2 class="card-title">Search by House Number</h2>
+      </div>
+      <div style="padding: 20px;">
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+          <input
+            type="text"
+            id="dashboard-house-search"
+            placeholder="Enter house/unit number..."
+            style="flex: 1; min-width: 200px; padding: 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px;"
+            onkeypress="handleDashboardHouseSearchKeypress(event)"
+          >
+          <button class="btn btn-primary" onclick="searchByHouseNumberFromDashboard()" style="white-space: nowrap;">
+            <i class="ph ph-magnifying-glass"></i> Find House
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
         <h2 class="card-title">Recent Payments</h2>
         <a href="#" onclick="loadPage('payments'); return false;" style="color:var(--primary);text-decoration:none;font-weight:600;">View All</a>
       </div>
@@ -463,4 +483,36 @@ function showNotification(message, type = 'success', duration = 3000) {
   el.textContent = message;
   document.body.appendChild(el);
   setTimeout(() => { el.style.animation = 'slideOut 0.3s ease'; setTimeout(() => el.remove(), 300); }, duration);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SEARCH BY HOUSE NUMBER
+// ═══════════════════════════════════════════════════════════════
+
+function handleDashboardHouseSearchKeypress(event) {
+  if (event.key === "Enter") {
+    searchByHouseNumberFromDashboard();
+  }
+}
+
+async function searchByHouseNumberFromDashboard() {
+  const houseInput = document.getElementById("dashboard-house-search");
+  const unitNumber = (houseInput?.value || "").trim();
+
+  if (!unitNumber) {
+    showNotification("Please enter a house/unit number", "warning");
+    return;
+  }
+
+  // Navigate to invoices page and trigger search
+  loadPage('invoices');
+
+  // Wait for the page to load, then trigger the search
+  setTimeout(() => {
+    const invoiceHouseInput = document.getElementById("house-search");
+    if (invoiceHouseInput) {
+      invoiceHouseInput.value = unitNumber;
+      searchByHouseNumber();
+    }
+  }, 500);
 }

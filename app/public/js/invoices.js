@@ -5,7 +5,6 @@
 window._inv = {
   all:          [],
   statusFilter: "ALL",
-  searchQuery:  "",
   estateName:   ""
 };
 
@@ -15,7 +14,6 @@ async function loadInvoices() {
   // Reset state on every load so stale data never bleeds between navigations
   window._inv.all          = [];
   window._inv.statusFilter = "ALL";
-  window._inv.searchQuery  = "";
 
   // Reset filter tab UI to "All"
   document.querySelectorAll(".filter-tab").forEach(b => b.classList.remove("active"));
@@ -80,25 +78,11 @@ function setStatusFilter(status, btn) {
   applyFilters();
 }
 
-function filterInvoices(query) {
-  window._inv.searchQuery = (query || "").toLowerCase().trim();
-  applyFilters();
-}
-
 function applyFilters() {
   let list = window._inv.all || [];
 
   if (window._inv.statusFilter !== "ALL") {
     list = list.filter(i => i.status === window._inv.statusFilter);
-  }
-
-  const q = window._inv.searchQuery;
-  if (q) {
-    list = list.filter(i =>
-      i.resident?.fullName?.toLowerCase().includes(q) ||
-      i.unit?.unitNumber?.toLowerCase().includes(q) ||
-      i.referenceNo?.toLowerCase().includes(q)
-    );
   }
 
   renderInvoices(list);
@@ -344,17 +328,12 @@ async function searchByHouseNumber() {
 
     // Load the search results into the view
     window._inv.all = data.invoices || [];
-    window._inv.searchQuery = "";
     window._inv.statusFilter = "ALL";
 
     // Clear filter tabs
     document.querySelectorAll(".filter-tab").forEach(b => b.classList.remove("active"));
     const allTab = document.querySelector(".filter-tab[data-status='ALL']");
     if (allTab) allTab.classList.add("active");
-
-    // Clear the general search input
-    const invSearch = document.getElementById("inv-search");
-    if (invSearch) invSearch.value = "";
 
     updateCounters(window._inv.all);
     applyFilters();
@@ -379,7 +358,6 @@ function resetHouseSearch() {
   if (houseInput) houseInput.value = "";
 
   window._inv.all = [];
-  window._inv.searchQuery = "";
   window._inv.statusFilter = "ALL";
 
   document.querySelectorAll(".filter-tab").forEach(b => b.classList.remove("active"));
